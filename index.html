@@ -169,6 +169,18 @@ th{color:var(--gold)}
 .stat{background:#0d1525;border:1px solid #263650;border-radius:12px;padding:12px;text-align:center}
 .stat b{display:block;font-size:23px;color:var(--cyan)}
 .notice{background:#0c1424;border:1px solid #2a3a54;border-radius:12px;padding:12px;color:#aeb9ca;line-height:1.5}
+.online-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.online-panel{background:#0c1424;border:1px solid #2a3a54;border-radius:14px;padding:14px}
+.online-panel h3{margin:0 0 10px;color:var(--cyan)}
+.online-form{display:grid;gap:8px}
+.online-form input{width:100%;box-sizing:border-box;border:1px solid #344763;border-radius:9px;background:#07101e;color:#fff;padding:10px;font:inherit}
+.online-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.online-status{min-height:20px;margin-top:9px;color:#aeb9ca;font-size:12px;line-height:1.4}
+.online-status.success{color:var(--green)}
+.online-status.error{color:#ff8791}
+.room-code{font-size:25px;font-weight:900;letter-spacing:2px;color:var(--gold);margin:8px 0}
+.account-badge{margin:0 0 12px;padding:10px 12px;border:1px solid #2a3a54;border-radius:12px;background:#0a1324;color:#b9c6d9}
+.account-badge strong{color:#fff}
 .match-result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center}
 .result-score{font-size:38px;font-weight:bold;color:var(--gold)}
 
@@ -176,6 +188,7 @@ th{color:var(--gold)}
   .app{padding:5px}
   .screen{height:calc(100vh - 10px)}
   .menu-grid{grid-template-columns:1fr 1fr}
+  .online-grid{grid-template-columns:1fr}
   #screen-menu .menu-btn{min-height:58px;padding:10px;font-size:14px}
   #screen-menu .title h1{font-size:31px}
   .formation-layout{grid-template-columns:175px minmax(0,1fr);height:auto;flex:1;min-height:0}
@@ -953,14 +966,37 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
 <section id="screen-multiplayer" class="screen">
   <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>MULTIPLAYER</strong></div>
   <div class="card">
+    <div id="onlineAccountBadge" class="account-badge">Sign in from Profile to use online multiplayer.</div>
     <div class="menu-grid">
       <button class="menu-btn primary" onclick="startFormationBuilder('local')">Play on This Device</button>
-      <button class="menu-btn" disabled>Quick Match — Online coming later</button>
-      <button class="menu-btn" disabled>Create Private Game — Backend required</button>
-      <button class="menu-btn" disabled>Join Private Game — Backend required</button>
+      <button class="menu-btn" disabled>Quick Match — Coming next</button>
+      <button id="createOnlineMatchBtn" class="menu-btn" onclick="createOnlineMatch()">Create Private Game</button>
+      <button id="showJoinOnlineBtn" class="menu-btn" onclick="focusJoinRoom()">Join Private Game</button>
+    </div>
+    <div class="online-grid">
+      <div class="online-panel">
+        <h3>Private Room</h3>
+        <div id="onlineRoomEmpty">Create a private match, then send the room code to your opponent.</div>
+        <div id="onlineRoomDetails" style="display:none">
+          <div id="onlineRoomCode" class="room-code">—</div>
+          <div id="onlineRoomState" class="online-status"></div>
+          <div class="online-actions">
+            <button class="small-btn" onclick="copyOnlineRoomCode()">Copy Code</button>
+            <button class="small-btn" onclick="refreshOnlineRoom()">Refresh Room</button>
+          </div>
+        </div>
+      </div>
+      <div class="online-panel">
+        <h3>Join a Room</h3>
+        <div class="online-form">
+          <input id="onlineJoinCode" maxlength="10" placeholder="DMA-A1B2C3" aria-label="Private room code">
+          <button class="small-btn primary" onclick="joinOnlineMatch()">Join Match</button>
+        </div>
+        <div id="onlineMatchStatus" class="online-status"></div>
+      </div>
     </div>
     <div class="notice" style="margin-top:12px">
-      The local multiplayer mode is fully playable in this prototype. Each side uses 10 pieces selected from the same 12-piece squad pool, with structured football-style formations such as 4-3-3, 4-4-2 and 3-3-4. True online multiplayer needs a server so both players share the same authoritative board, timer, moves and result.
+      Online accounts and secure private rooms are active. Live synchronized board moves will be connected in the next multiplayer stage. Local multiplayer remains available on this device.
     </div>
   </div>
 </section>
@@ -1037,19 +1073,13 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
 <section id="screen-leaderboard" class="screen">
   <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>LEADERBOARD</strong></div>
   <div class="card">
-    <div class="tabs">
-      <button class="tab active">Global</button><button class="tab">Weekly</button><button class="tab">Daily</button><button class="tab">Friends</button>
-    </div>
-    <div class="notice">Leaderboard ranking prioritises goals. When goals are tied, Secondary Points (Take Possession + qualifying passes) are the next tiebreaker. Prototype data is local; a shared leaderboard will require online accounts and a backend.</div>
+    <div class="tabs"><button class="tab active">Global</button></div>
+    <div class="notice">Live shared ranking: goals first, then Secondary Points, wins, goal difference and fewer matches played.</div>
+    <div id="onlineLeaderboardStatus" class="online-status">Loading leaderboard…</div>
     <div class="table-wrap" style="margin-top:10px">
       <table>
-        <thead><tr><th>#</th><th>Player</th><th>Goals</th><th>Secondary</th><th>W</th><th>L</th></tr></thead>
-        <tbody>
-          <tr><td>1</td><td>DMA Master</td><td>86</td><td>214</td><td>31</td><td>8</td></tr>
-          <tr><td>2</td><td>Midfield King</td><td>79</td><td>229</td><td>27</td><td>10</td></tr>
-          <tr><td>3</td><td>Zone Breaker</td><td>79</td><td>201</td><td>24</td><td>11</td></tr>
-          <tr><td>4</td><td>You</td><td id="leaderGoals">0</td><td id="leaderSecondary">0</td><td id="leaderWins">0</td><td id="leaderLosses">0</td></tr>
-        </tbody>
+        <thead><tr><th>#</th><th>Player</th><th>Goals</th><th>Secondary</th><th>W</th><th>D</th><th>L</th></tr></thead>
+        <tbody id="onlineLeaderboardBody"><tr><td colspan="7">No ranked players yet.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -1060,13 +1090,50 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
   <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>PROFILE</strong></div>
   <div class="card">
     <h2 style="margin-top:0">PLAYER PROFILE</h2>
+    <div id="onlineSignedOut">
+      <div class="online-grid">
+        <div class="online-panel">
+          <h3>Create Account</h3>
+          <div class="online-form">
+            <input id="registerDisplayName" maxlength="40" placeholder="Display name" autocomplete="name">
+            <input id="registerEmail" type="email" placeholder="Email address" autocomplete="email">
+            <input id="registerPassword" type="password" minlength="8" placeholder="Password (minimum 8 characters)" autocomplete="new-password">
+            <button class="small-btn primary" onclick="registerOnlinePlayer()">Register</button>
+          </div>
+        </div>
+        <div class="online-panel">
+          <h3>Player Login</h3>
+          <div class="online-form">
+            <input id="loginEmail" type="email" placeholder="Email address" autocomplete="email">
+            <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password">
+            <button class="small-btn primary" onclick="loginOnlinePlayer()">Sign In</button>
+          </div>
+        </div>
+      </div>
+      <div id="onlineAuthStatus" class="online-status"></div>
+    </div>
+    <div id="onlineSignedIn" style="display:none">
+      <div id="onlineProfileIdentity" class="account-badge"></div>
+      <div class="online-panel" style="margin-bottom:12px">
+        <h3>Public Player Details</h3>
+        <div class="online-form">
+          <input id="onlineUsername" maxlength="20" placeholder="Username: 3–20 letters, numbers or _">
+          <input id="onlineDisplayName" maxlength="40" placeholder="Display name">
+          <div class="online-actions">
+            <button class="small-btn primary" onclick="saveOnlineProfile()">Save Profile</button>
+            <button class="small-btn" onclick="logoutOnlinePlayer()">Sign Out</button>
+          </div>
+        </div>
+        <div id="onlineProfileStatus" class="online-status"></div>
+      </div>
+    </div>
     <div class="profile-grid">
-      <div class="stat"><b id="profileRating">1200</b>DMA Rating</div>
+      <div class="stat"><b id="profileRating">—</b>Online Rank</div>
       <div class="stat"><b id="profileWins">0</b>Wins</div>
       <div class="stat"><b id="profileLosses">0</b>Losses</div>
       <div class="stat"><b id="profileGames">0</b>Games</div>
       <div class="stat"><b id="profileGoals">0</b>Goals</div>
-      <div class="stat"><b id="profilePossessions">0</b>Possessions Won</div>
+      <div class="stat"><b id="profilePossessions">0</b>Secondary Points</div>
     </div>
   </div>
 </section>
@@ -1199,7 +1266,13 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+const SUPABASE_URL="https://ibudikptfylzzlcysxmd.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_BALeeEPCjnDmk349b8y-1Q_EJC7dQCo";
+const dmaSupabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let dmaSession=null,dmaOnlineProfile=null,dmaOnlineStats=null,dmaOnlineMatch=null,dmaRoomPoll=null;
+
 const ROWS=12,COLS=9,GAME_DURATION=300,HALF_TIME_REMAINING=150,TURN_DURATION=30,ACTIONS_PER_TURN=3;
 const HUMAN_TEAM="cyan",AI_TEAM="orange",AI_DELAY=700;
 const goals={top:{row:0,col:4},bottom:{row:11,col:4}};
@@ -1746,7 +1819,14 @@ const SQUAD_POOL=[
 
 const DEFAULT_SQUAD_INDICES=[0,1,2,4,6,7,8,9,10,11];
 
-function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");updateProfileUI()}
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  updateProfileUI();
+  if(id==="screen-leaderboard")loadOnlineLeaderboard();
+  if(id==="screen-profile")refreshOnlineAccountUI();
+  if(id==="screen-multiplayer")refreshOnlineMultiplayerUI();
+}
 function openPlayMenu(){showScreen("screen-playmenu")}
 function showRuleTab(i,btn){document.querySelectorAll(".rules-section").forEach((s,idx)=>s.classList.toggle("active",idx===i));document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));btn.classList.add("active")}
 function opponentOf(team){return team==="cyan"?"orange":"cyan"}
@@ -3373,11 +3453,214 @@ function renderPractice(){
 }
 document.getElementById("practiceNextButton").onclick=()=>{if(practiceStep<practiceSteps.length-1){practiceStep++;renderPractice()}else{document.getElementById("practiceOverlay").classList.remove("show");showScreen("screen-menu")}};
 
+/* =========================
+   ONLINE ACCOUNTS & LOBBIES
+   ========================= */
+function setOnlineStatus(id,message,type=""){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.textContent=message||"";
+  el.className="online-status"+(type?" "+type:"");
+}
+
+function onlinePlayerName(){
+  return dmaOnlineProfile?.username||dmaOnlineProfile?.display_name||dmaSession?.user?.email||"Player";
+}
+
+async function registerOnlinePlayer(){
+  const displayName=document.getElementById("registerDisplayName").value.trim();
+  const email=document.getElementById("registerEmail").value.trim();
+  const password=document.getElementById("registerPassword").value;
+  if(displayName.length<2)return setOnlineStatus("onlineAuthStatus","Enter a display name of at least 2 characters.","error");
+  if(!email)return setOnlineStatus("onlineAuthStatus","Enter your email address.","error");
+  if(password.length<8)return setOnlineStatus("onlineAuthStatus","Password must contain at least 8 characters.","error");
+  setOnlineStatus("onlineAuthStatus","Creating your account…");
+  const {data,error}=await dmaSupabase.auth.signUp({
+    email,password,
+    options:{
+      data:{display_name:displayName},
+      emailRedirectTo:"https://dma-aren1.vercel.app"
+    }
+  });
+  if(error)return setOnlineStatus("onlineAuthStatus",error.message,"error");
+  document.getElementById("registerPassword").value="";
+  if(data.session){
+    setOnlineStatus("onlineAuthStatus","Account created and signed in.","success");
+  }else{
+    setOnlineStatus("onlineAuthStatus","Account created. Check your email and click the confirmation link.","success");
+  }
+}
+
+async function loginOnlinePlayer(){
+  const email=document.getElementById("loginEmail").value.trim();
+  const password=document.getElementById("loginPassword").value;
+  if(!email||!password)return setOnlineStatus("onlineAuthStatus","Enter your email address and password.","error");
+  setOnlineStatus("onlineAuthStatus","Signing in…");
+  const {error}=await dmaSupabase.auth.signInWithPassword({email,password});
+  document.getElementById("loginPassword").value="";
+  if(error)return setOnlineStatus("onlineAuthStatus",error.message,"error");
+  setOnlineStatus("onlineAuthStatus","Signed in successfully.","success");
+}
+
+async function logoutOnlinePlayer(){
+  const {error}=await dmaSupabase.auth.signOut();
+  if(error)return setOnlineStatus("onlineProfileStatus",error.message,"error");
+  dmaOnlineMatch=null;
+  stopRoomPolling();
+  showScreen("screen-profile");
+}
+
+async function loadOnlinePlayerData(){
+  if(!dmaSession){
+    dmaOnlineProfile=null;dmaOnlineStats=null;
+    refreshOnlineAccountUI();refreshOnlineMultiplayerUI();updateProfileUI();
+    return;
+  }
+  const userId=dmaSession.user.id;
+  const [profileResult,statsResult,rankResult]=await Promise.all([
+    dmaSupabase.from("profiles").select("id,username,display_name").eq("id",userId).single(),
+    dmaSupabase.from("player_stats").select("*").eq("player_id",userId).single(),
+    dmaSupabase.from("leaderboard").select("rank").eq("player_id",userId).maybeSingle()
+  ]);
+  if(profileResult.error){
+    setOnlineStatus("onlineProfileStatus",profileResult.error.message,"error");
+    return;
+  }
+  dmaOnlineProfile=profileResult.data;
+  dmaOnlineStats=statsResult.data||null;
+  if(dmaOnlineStats)dmaOnlineStats.rank=rankResult.data?.rank||"—";
+  refreshOnlineAccountUI();refreshOnlineMultiplayerUI();updateProfileUI();
+}
+
+function refreshOnlineAccountUI(){
+  const signedOut=document.getElementById("onlineSignedOut"),signedIn=document.getElementById("onlineSignedIn");
+  if(!signedOut||!signedIn)return;
+  signedOut.style.display=dmaSession?"none":"block";
+  signedIn.style.display=dmaSession?"block":"none";
+  if(!dmaSession)return;
+  document.getElementById("onlineProfileIdentity").innerHTML="Signed in as <strong>"+escapeOnlineHtml(onlinePlayerName())+"</strong><br><span>"+escapeOnlineHtml(dmaSession.user.email||"")+"</span>";
+  document.getElementById("onlineUsername").value=dmaOnlineProfile?.username||"";
+  document.getElementById("onlineDisplayName").value=dmaOnlineProfile?.display_name||"";
+}
+
+async function saveOnlineProfile(){
+  if(!dmaSession)return setOnlineStatus("onlineProfileStatus","Sign in first.","error");
+  const username=document.getElementById("onlineUsername").value.trim();
+  const displayName=document.getElementById("onlineDisplayName").value.trim();
+  if(!/^[A-Za-z0-9_]{3,20}$/.test(username))return setOnlineStatus("onlineProfileStatus","Username must be 3–20 letters, numbers or underscores.","error");
+  if(displayName.length<2||displayName.length>40)return setOnlineStatus("onlineProfileStatus","Display name must be 2–40 characters.","error");
+  setOnlineStatus("onlineProfileStatus","Saving…");
+  const {data,error}=await dmaSupabase.from("profiles").update({username,display_name:displayName}).eq("id",dmaSession.user.id).select("id,username,display_name").single();
+  if(error)return setOnlineStatus("onlineProfileStatus",error.code==="23505"?"That username is already taken.":error.message,"error");
+  dmaOnlineProfile=data;
+  refreshOnlineAccountUI();refreshOnlineMultiplayerUI();
+  setOnlineStatus("onlineProfileStatus","Profile saved.","success");
+}
+
+function refreshOnlineMultiplayerUI(){
+  const badge=document.getElementById("onlineAccountBadge");
+  const createBtn=document.getElementById("createOnlineMatchBtn");
+  const joinBtn=document.getElementById("showJoinOnlineBtn");
+  if(!badge||!createBtn||!joinBtn)return;
+  const enabled=!!dmaSession;
+  createBtn.disabled=!enabled;joinBtn.disabled=!enabled;
+  badge.innerHTML=enabled?"Online as <strong>"+escapeOnlineHtml(onlinePlayerName())+"</strong>":"Sign in from Profile to use online multiplayer.";
+  if(dmaOnlineMatch)renderOnlineRoom();
+}
+
+async function createOnlineMatch(){
+  if(!dmaSession)return setOnlineStatus("onlineMatchStatus","Sign in from Profile first.","error");
+  setOnlineStatus("onlineMatchStatus","Creating private room…");
+  const {data,error}=await dmaSupabase.rpc("create_match");
+  if(error)return setOnlineStatus("onlineMatchStatus",error.message,"error");
+  dmaOnlineMatch=Array.isArray(data)?data[0]:data;
+  renderOnlineRoom();startRoomPolling();
+  setOnlineStatus("onlineMatchStatus","Private room created.","success");
+}
+
+function focusJoinRoom(){
+  const input=document.getElementById("onlineJoinCode");
+  if(input){input.scrollIntoView({behavior:"smooth",block:"center"});input.focus()}
+}
+
+async function joinOnlineMatch(){
+  if(!dmaSession)return setOnlineStatus("onlineMatchStatus","Sign in from Profile first.","error");
+  const code=document.getElementById("onlineJoinCode").value.trim().toUpperCase();
+  if(!/^DMA-[A-Z0-9]{6}$/.test(code))return setOnlineStatus("onlineMatchStatus","Enter a room code in the format DMA-A1B2C3.","error");
+  setOnlineStatus("onlineMatchStatus","Joining room…");
+  const {data,error}=await dmaSupabase.rpc("join_match",{p_room_code:code});
+  if(error)return setOnlineStatus("onlineMatchStatus",error.message,"error");
+  dmaOnlineMatch=Array.isArray(data)?data[0]:data;
+  renderOnlineRoom();startRoomPolling();
+  setOnlineStatus("onlineMatchStatus","Room joined successfully.","success");
+}
+
+function renderOnlineRoom(){
+  if(!dmaOnlineMatch)return;
+  document.getElementById("onlineRoomEmpty").style.display="none";
+  document.getElementById("onlineRoomDetails").style.display="block";
+  document.getElementById("onlineRoomCode").textContent=dmaOnlineMatch.room_code;
+  const waiting=dmaOnlineMatch.status==="waiting";
+  setOnlineStatus("onlineRoomState",waiting?"Waiting for Player 2…":"Opponent connected. Match lobby is ready.",waiting?"":"success");
+}
+
+async function refreshOnlineRoom(){
+  if(!dmaOnlineMatch||!dmaSession)return;
+  const {data,error}=await dmaSupabase.from("matches").select("*").eq("id",dmaOnlineMatch.id).single();
+  if(error)return setOnlineStatus("onlineRoomState",error.message,"error");
+  dmaOnlineMatch=data;renderOnlineRoom();
+}
+
+function startRoomPolling(){
+  stopRoomPolling();
+  dmaRoomPoll=setInterval(refreshOnlineRoom,3000);
+}
+
+function stopRoomPolling(){
+  if(dmaRoomPoll){clearInterval(dmaRoomPoll);dmaRoomPoll=null}
+}
+
+async function copyOnlineRoomCode(){
+  if(!dmaOnlineMatch)return;
+  try{
+    await navigator.clipboard.writeText(dmaOnlineMatch.room_code);
+    setOnlineStatus("onlineRoomState","Room code copied.","success");
+  }catch(e){setOnlineStatus("onlineRoomState","Copy failed. Select the code manually.","error")}
+}
+
+async function loadOnlineLeaderboard(){
+  setOnlineStatus("onlineLeaderboardStatus","Loading shared leaderboard…");
+  const {data,error}=await dmaSupabase.from("leaderboard").select("*").order("rank",{ascending:true}).limit(100);
+  const body=document.getElementById("onlineLeaderboardBody");
+  if(error){body.innerHTML="<tr><td colspan=\"7\">Leaderboard unavailable.</td></tr>";return setOnlineStatus("onlineLeaderboardStatus",error.message,"error")}
+  if(!data?.length){body.innerHTML="<tr><td colspan=\"7\">No ranked players yet. Register to become the first.</td></tr>";return setOnlineStatus("onlineLeaderboardStatus","Leaderboard connected.","success")}
+  body.innerHTML=data.map(row=>"<tr><td>"+row.rank+"</td><td>"+escapeOnlineHtml(row.player_name)+"</td><td>"+row.goals+"</td><td>"+row.secondary_points+"</td><td>"+row.wins+"</td><td>"+row.draws+"</td><td>"+row.losses+"</td></tr>").join("");
+  setOnlineStatus("onlineLeaderboardStatus","Live data · "+data.length+" player"+(data.length===1?"":"s"),"success");
+}
+
+function escapeOnlineHtml(value){
+  return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"})[char]);
+}
+
+async function initialiseOnlineDMA(){
+  const {data}=await dmaSupabase.auth.getSession();
+  dmaSession=data.session;
+  await loadOnlinePlayerData();
+  loadOnlineLeaderboard();
+  dmaSupabase.auth.onAuthStateChange((_event,session)=>{
+    dmaSession=session;
+    setTimeout(loadOnlinePlayerData,0);
+  });
+}
+
 function updateProfileUI(){
-  document.getElementById("profileRating").textContent=profile.rating;document.getElementById("profileWins").textContent=profile.wins;document.getElementById("profileLosses").textContent=profile.losses;document.getElementById("profileGames").textContent=profile.games;document.getElementById("profileGoals").textContent=profile.goals;document.getElementById("profilePossessions").textContent=profile.takes;
-  const lg=document.getElementById("leaderGoals"),ls=document.getElementById("leaderSecondary");
-  if(lg)lg.textContent=profile.goals;if(ls)ls.textContent=profile.secondary||0;
-  document.getElementById("leaderWins").textContent=profile.wins;document.getElementById("leaderLosses").textContent=profile.losses;
+  const stats=dmaSession&&dmaOnlineStats?dmaOnlineStats:null;
+  document.getElementById("profileRating").textContent=stats?stats.rank:(profile.rating||"—");
+  document.getElementById("profileWins").textContent=stats?stats.wins:profile.wins;
+  document.getElementById("profileLosses").textContent=stats?stats.losses:profile.losses;
+  document.getElementById("profileGames").textContent=stats?stats.matches_played:profile.games;
+  document.getElementById("profileGoals").textContent=stats?stats.goals_for:profile.goals;
+  document.getElementById("profilePossessions").textContent=stats?stats.secondary_points:(profile.secondary||0);
 }
 
 updateProfileUI();
@@ -3385,6 +3668,7 @@ updateProfileUI();
 // Restore a saved Manager Journey and cosmetic progression, if one exists.
 loadManagerJourney();
 refreshThemeUnlocks();
+initialiseOnlineDMA();
 
 </script>
 </body>
