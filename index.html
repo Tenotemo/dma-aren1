@@ -2178,7 +2178,9 @@ function render(){
     if(selectedPiece&&selectedPiece.id===piece.id)el.classList.add("selected");if(piece.possession)el.classList.add("possession");
     const s=document.createElement("span");s.className="symbol";s.textContent=piece.movement==="plus"?"+":"♦";el.appendChild(s);cells[piece.row][piece.col].appendChild(el);
   });
-  if(currentTeam==="cyan"||gameMode==="local"){
+  // Both human players need legal-move guidance. Only hide Orange's
+  // highlights when Orange is controlled by the computer.
+  if(gameMode!=="ai"||currentTeam==="cyan"){
     if(selectedPiece)highlightLegalMoves(selectedPiece);
     highlightPassTargets();highlightTakeTargets();
   }
@@ -3903,7 +3905,10 @@ function enterOnlineFormation(){
 function formationForOnlineTeam(items,team){
   return (items||[]).map(item=>{
     const template=SQUAD_POOL[Number(item.poolIndex)]||SQUAD_POOL[0];
-    const square=team==="orange"?mirrorFormationSquare("orange",{row:Number(item.row),col:Number(item.col)}):{row:Number(item.row),col:Number(item.col)};
+    // Both players build from the same Cyan/top-half perspective. Mirror the
+    // guest formation onto Orange's opposite half when creating the board.
+    const submitted={row:Number(item.row),col:Number(item.col)};
+    const square=team==="orange"?{row:11-submitted.row,col:submitted.col}:submitted;
     return {role:template.role,movement:template.movement,row:square.row,col:square.col};
   });
 }
