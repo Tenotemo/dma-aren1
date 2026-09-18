@@ -1,0 +1,3391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DMA Arena</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --bg:#050b1c;--panel:#111a2d;--panel2:#172238;--line:#2d3b56;
+  --cyan:#38dff3;--orange:#f28a3b;--gold:#ffc83d;--red:#ff4e5c;
+  --text:#f5f7fb;--muted:#9eabc0;--green:#64e6b1
+}
+body{margin:0;background:
+radial-gradient(circle at 18% 18%,rgba(56,223,243,.13),transparent 27%),
+radial-gradient(circle at 82% 22%,rgba(242,138,59,.12),transparent 25%),
+radial-gradient(circle at 50% 78%,rgba(255,200,61,.08),transparent 30%),
+linear-gradient(145deg,#040817 0%,#08142a 45%,#06101f 100%);
+color:var(--text);font-family:Arial,Helvetica,sans-serif;height:100vh;overflow:hidden}
+button{font:inherit}
+.app{max-width:980px;margin:auto;padding:10px;height:100vh;overflow:hidden}
+#screen-menu{position:relative;overflow:hidden}
+#screen-menu::before,#screen-menu::after{content:"";position:absolute;border-radius:50%;filter:blur(2px);pointer-events:none}
+#screen-menu::before{width:280px;height:280px;right:-90px;top:-70px;background:radial-gradient(circle,rgba(56,223,243,.18),rgba(56,223,243,0) 70%)}
+#screen-menu::after{width:320px;height:320px;left:-120px;bottom:-130px;background:radial-gradient(circle,rgba(242,138,59,.16),rgba(242,138,59,0) 70%)}
+#screen-menu .card{background:linear-gradient(180deg,rgba(17,26,45,.92),rgba(10,18,33,.92));box-shadow:0 18px 50px rgba(0,0,0,.28)}
+#screen-menu .title h1{font-size:42px;letter-spacing:2px;text-shadow:0 0 24px rgba(56,223,243,.25)}
+#screen-menu .menu-btn{min-height:76px;font-size:17px;position:relative;overflow:hidden}
+#screen-menu .menu-btn::after{content:"";position:absolute;inset:auto -30% -70% -30%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);transform:rotate(-8deg)}
+.screen{height:calc(100vh - 20px);overflow:hidden}
+#screen-rules .card,#screen-leaderboard .card,#screen-profile .card,#screen-multiplayer .card,#screen-playmenu .card{max-height:calc(100vh - 70px);overflow:auto}
+#screen-match{display:none}
+#screen-match.active{display:flex;flex-direction:column;height:calc(100vh - 20px)}
+#screen-match #boardWrapper{
+  flex:0 0 auto;
+  min-height:0;
+  width:min(calc(100vw - 16px),620px,calc((100dvh - 215px) * .75));
+  height:auto;
+  aspect-ratio:9/12;
+  margin:0 auto
+}
+#screen-match #board{width:100%;height:100%;aspect-ratio:9/12;margin:auto}
+#screen-match .cell{min-height:0}
+#screen-match .action-panel{min-height:42px;margin-top:2px}
+#screen-match .controls{margin-top:2px}
+#screen-match #message{min-height:18px;margin-top:2px}
+#screen-formation{overflow:hidden;display:none}
+#screen-formation.active{display:flex;flex-direction:column;height:calc(100vh - 20px)}
+#screen-formation .back-row{flex:0 0 auto;margin-bottom:6px}
+.formation-layout{display:grid;grid-template-columns:235px minmax(0,1fr);gap:10px;flex:1;min-height:0;align-items:stretch;overflow:hidden}
+#formationBoardWrapper{height:100%;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:4px}
+#formationBoard{width:min(100%,calc((100vh - 95px) * 1.5));height:auto;max-height:100%;aspect-ratio:9/6}
+#formationBoard .cell{min-height:0}
+.screen{display:none}.screen.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px}
+.title{text-align:center;margin:2px 0 10px}
+.title h1{margin:0;color:var(--cyan);font-size:34px}
+.title p{margin:6px 0 0;color:var(--muted)}
+.menu-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.menu-btn{padding:18px;border:none;border-radius:14px;background:var(--panel2);color:#fff;font-weight:700;cursor:pointer;border:1px solid #31415f}
+.menu-btn:hover{filter:brightness(1.12)}
+.menu-btn.primary{background:#086b86}.menu-btn.gold{background:#76550e;color:#ffdc67}
+.small-btn{padding:10px 14px;border:none;border-radius:10px;background:#26334c;color:#fff;font-weight:700;cursor:pointer}
+.small-btn.primary{background:#076987}.small-btn.gold{background:#73530f;color:#ffe074}
+.small-btn.red{background:#64202a;color:#ff9ca5}
+.small-btn:disabled{opacity:.45;cursor:not-allowed}
+.back-row{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:12px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.tab{padding:9px 12px;border:none;border-radius:10px;background:#26334c;color:#cbd4e4;cursor:pointer}
+.tab.active{background:#086b86;color:#fff}
+.rules-section{display:none}.rules-section.active{display:block}
+.rules-section h3{color:var(--gold);margin-top:8px}
+.rules-section p,.rules-section li{color:#c2ccdc;line-height:1.55}
+.points-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.point-card{background:#0d1525;border:1px solid #263650;border-radius:12px;padding:12px;text-align:center}
+.point-card b{display:block;font-size:24px;color:var(--gold)}
+
+.top-panel{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:5px;align-items:center;margin-bottom:3px}
+.player-card{background:var(--panel);border-radius:14px;padding:7px;text-align:center;border:2px solid transparent}
+.player-card.active{border-color:var(--cyan);box-shadow:0 0 15px rgba(53,218,242,.25)}
+.player-name{font-weight:bold;font-size:14px}.cyan-text{color:var(--cyan)}.orange-text{color:var(--orange)}
+.score{font-size:23px;font-weight:bold;margin-top:2px}
+.centre-info{text-align:center}
+#halfLabel{font-size:11px;color:var(--muted)}
+#turnLabel{font-size:18px;font-weight:bold;color:var(--cyan)}
+#modeLabel{min-height:15px;font-size:11px;color:var(--muted);margin:3px 0}
+.action-dot{display:inline-block;width:24px;height:7px;border-radius:6px;margin:0 2px;background:#394259}
+.action-dot.active{background:var(--gold);box-shadow:0 0 8px rgba(255,194,61,.45)}
+.timers{display:flex;justify-content:center;gap:7px;margin-top:6px}
+.timer-box{background:#1c263b;border-radius:8px;padding:5px 8px;min-width:66px}
+.timer-label{font-size:9px;color:var(--muted)}.timer-value{font-weight:bold;font-size:17px}
+
+#boardWrapper{position:relative;background:#121b2c;border:2px solid #28344e;border-radius:20px;padding:4px;overflow:hidden;box-sizing:border-box}
+#board{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));grid-template-rows:repeat(12,minmax(0,1fr));position:relative}
+.cell{position:relative;aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;background:#263247;border:1px solid #172136;cursor:pointer}
+.cell.middle-line{border-bottom:3px solid #fff}
+.cell.legal{background:#40546b;box-shadow:inset 0 0 0 3px rgba(71,221,246,.5)}
+.cell.pass-target{box-shadow:inset 0 0 0 4px rgba(255,207,49,.85)}
+.cell.take-target{box-shadow:inset 0 0 0 4px rgba(255,79,89,.9)}
+.cell.scoring-zone{background:#72551c;box-shadow:inset 0 0 0 3px var(--gold)}
+.goal-symbol{width:30%;height:30%;border:4px dashed rgba(255,198,57,.75);border-radius:50%}
+.piece{width:64%;height:64%;position:relative;display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(13px,3vw,21px);font-weight:bold;z-index:10;user-select:none}
+.piece.cyan{background:linear-gradient(145deg,#2be2f4,#009fbe)}
+.piece.orange{background:linear-gradient(145deg,#f58a32,#c55315)}
+.piece.defence{border-radius:8px}.piece.midfield{border-radius:50%}
+.piece.attack{width:0;height:0;background:transparent;border-left:clamp(12px,3.4vw,20px) solid transparent;border-right:clamp(12px,3.4vw,20px) solid transparent;border-bottom:clamp(23px,6.6vw,39px) solid}
+.piece.attack.cyan{border-bottom-color:#18cfe7}.piece.attack.orange{border-bottom-color:#e46d25}
+.piece.attack .symbol{position:absolute;top:clamp(8px,2.4vw,14px);left:50%;transform:translateX(-50%);font-size:clamp(10px,2.8vw,15px)}
+.piece.selected{filter:brightness(1.35)}
+.piece.possession::after{content:"";position:absolute;width:calc(100% + 13px);height:calc(100% + 13px);border:5px solid var(--red);border-radius:50%;pointer-events:none}
+.piece.attack.possession::after{width:clamp(34px,9vw,52px);height:clamp(34px,9vw,52px);top:clamp(-8px,-1.5vw,-5px);left:50%;transform:translateX(-50%)}
+#arrowLayer{position:absolute;inset:5px;pointer-events:none;z-index:40}
+#arrowLayer svg{width:100%;height:100%;overflow:visible}
+.ai-arrow{fill:none;stroke-width:5;stroke-linecap:round}
+.ai-arrow.move{stroke:#ff9a4a}.ai-arrow.pass{stroke:#ffd54d}.ai-arrow.take{stroke:#ff5f6d}
+.ai-head.move{fill:#ff9a4a}.ai-head.pass{fill:#ffd54d}.ai-head.take{fill:#ff5f6d}
+.ai-label{font-size:12px;font-weight:bold;paint-order:stroke;stroke:#050b1c;stroke-width:4px}
+
+.action-panel{min-height:55px;display:flex;justify-content:center;align-items:center;margin-top:10px}
+.context-btn{display:none;width:100%;max-width:400px;padding:13px;border:none;border-radius:11px;font-size:16px;font-weight:bold;cursor:pointer}
+#passButton{background:#805f11;color:#ffdc62}#takeButton{background:#671d28;color:#ff9aa3}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+#message{text-align:center;min-height:28px;margin-top:8px;font-weight:bold;color:#ffd368}
+#message.success{color:var(--green)}#message.error{color:#ff6b76}#message.ai{color:#ffad55}
+
+.formation-layout{display:grid;grid-template-columns:235px minmax(0,1fr);gap:10px;flex:1;min-height:0;align-items:stretch;overflow:hidden}
+.tray{background:#0c1424;border:1px solid #263650;border-radius:14px;padding:10px;min-height:0;overflow:auto}
+.tray h3{margin-top:0;color:var(--gold)}
+.tray-group{margin-bottom:8px}.tray-group h4{margin:4px 0;color:#c8d3e5;font-size:12px}
+.tray-pieces{display:flex;flex-wrap:wrap;gap:6px}
+.tray-piece{width:44px;height:44px;border:2px solid #334765;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:#18263b;font-weight:bold}
+.tray-piece.selected{border-color:var(--gold);box-shadow:0 0 0 2px rgba(255,200,61,.25)}
+.tray-piece.used{opacity:.28;cursor:not-allowed}
+.formation-help{color:var(--muted);font-size:13px;line-height:1.4;margin-top:8px}
+.formation-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.saved-formations{margin-top:8px}.saved-formations select{width:100%;padding:10px;border-radius:9px;background:#172238;color:#fff;border:1px solid #32445f}
+
+.overlay{display:none;position:fixed;inset:0;background:rgba(1,5,15,.94);z-index:500;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{width:100%;max-width:650px;max-height:95vh;overflow:auto;background:#111b30;border:2px solid #2e425e;border-radius:22px;padding:20px;text-align:center}
+.modal h1{color:var(--cyan);margin-top:0}.modal h2{color:var(--gold)}
+.modal p{color:#c0cada;line-height:1.5}
+.phase-pill{display:inline-block;padding:5px 10px;border-radius:999px;background:#1b2a43;color:#cbd6e6;font-size:12px;margin-bottom:10px}
+.demo-board{width:min(390px,90vw);margin:16px auto;display:grid;grid-template-columns:repeat(7,1fr);border:2px solid #30405b;position:relative}
+.demo-cell{position:relative;aspect-ratio:1/1;background:#28364c;border:1px solid #172136;display:flex;align-items:center;justify-content:center}
+.demo-cell.highlight{background:#596b33;box-shadow:inset 0 0 0 3px rgba(255,218,82,.85)}
+.demo-cell.channel{background:#314e5f}
+.demo-piece{width:62%;height:62%;display:flex;align-items:center;justify-content:center;font-weight:bold;position:relative;z-index:4}
+.demo-piece.cyan{background:#12bcd9}.demo-piece.orange{background:#e26a25}.demo-piece.circle{border-radius:50%}.demo-piece.square{border-radius:7px}
+.demo-piece.triangle{width:0;height:0;background:transparent;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:25px solid #12bcd9}
+.demo-piece.triangle.orange{border-bottom-color:#e26a25}.demo-piece.triangle span{position:absolute;top:9px;left:-4px;font-size:11px}
+.demo-piece.possession::after{content:"";position:absolute;width:calc(100% + 10px);height:calc(100% + 10px);border:4px solid var(--red);border-radius:50%}
+.demo-piece.triangle.possession::after{width:36px;height:36px;top:-5px;left:-18px}
+.demo-goal{border:4px dashed #ffd046;border-radius:50%;width:38%;height:38%}
+.demo-arrow{position:absolute;inset:0;pointer-events:none;z-index:20}.demo-arrow svg{width:100%;height:100%}
+.demo-arrow line{stroke:#ffd54d;stroke-width:5;stroke-linecap:round}.demo-arrow polygon{fill:#ffd54d}
+.info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.info-card{background:#0c1525;border:1px solid #263650;border-radius:12px;padding:10px}.info-card strong{display:block}.info-card span{font-size:12px;color:var(--muted)}
+.tutorial-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.practice-instruction{background:#0b1323;border:1px solid #2c415f;border-radius:12px;padding:11px;color:#d7e1f2;margin:12px 0}
+.practice-success{min-height:20px;color:var(--green);font-weight:bold}
+#practicePassButton,#practiceTakeButton{display:none;margin:8px auto}
+
+.table-wrap{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #28364b;text-align:left}
+th{color:var(--gold)}
+.profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:#0d1525;border:1px solid #263650;border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:23px;color:var(--cyan)}
+.notice{background:#0c1424;border:1px solid #2a3a54;border-radius:12px;padding:12px;color:#aeb9ca;line-height:1.5}
+.match-result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center}
+.result-score{font-size:38px;font-weight:bold;color:var(--gold)}
+
+@media(max-width:700px){
+  .app{padding:5px}
+  .screen{height:calc(100vh - 10px)}
+  .menu-grid{grid-template-columns:1fr 1fr}
+  #screen-menu .menu-btn{min-height:58px;padding:10px;font-size:14px}
+  #screen-menu .title h1{font-size:31px}
+  .formation-layout{grid-template-columns:175px minmax(0,1fr);height:auto;flex:1;min-height:0}
+  .tray{padding:7px;overflow:auto}
+  .tray-piece{width:39px;height:39px}
+  .formation-help{font-size:11px}
+  .top-panel{grid-template-columns:1fr 1.35fr 1fr}
+  .player-card{padding:4px 2px}.player-name{font-size:10px}.score{font-size:19px}
+  .timer-box{padding:3px 5px;min-width:54px}.timer-value{font-size:14px}
+  #turnLabel{font-size:14px}
+  .info-grid,.profile-grid{grid-template-columns:1fr}
+  .piece.attack{border-left-width:12px;border-right-width:12px;border-bottom-width:23px}.piece.attack .symbol{top:8px;font-size:10px}
+}
+@media(max-height:720px){
+  #screen-menu .title h1{font-size:30px}
+  #screen-menu .menu-btn{min-height:54px;padding:10px}
+  .title p{font-size:12px}
+  .top-panel{margin-bottom:3px}
+  .player-card{padding:4px}
+  .score{font-size:19px}
+  .timer-box{padding:3px 5px}
+  .timer-value{font-size:14px}
+}
+
+@media(max-height:620px){
+  #screen-formation .back-row{margin-bottom:3px}
+  .formation-layout{grid-template-columns:165px minmax(0,1fr);gap:6px}
+  .tray{padding:6px}
+  .tray h3{font-size:14px;margin:0 0 4px}
+  .tray-piece{width:34px;height:34px;font-size:12px}
+  .tray-group{margin-bottom:5px}
+  .tray-group h4{font-size:10px;margin:2px 0}
+  .formation-help{font-size:9px;line-height:1.2;margin-top:4px}
+  .formation-actions{gap:4px;margin-top:4px}
+  .formation-actions .small-btn{padding:6px 8px;font-size:10px}
+  .saved-formations{margin-top:4px}
+  .saved-formations select{padding:6px;font-size:10px}
+  #formationMessage{font-size:10px!important;padding:5px 7px!important;margin-top:4px!important}
+}
+
+
+@media(max-width:700px){
+  #screen-match.active{
+    height:calc(100dvh - 10px);
+    justify-content:flex-start;
+  }
+  #screen-match #boardWrapper{
+    width:min(calc(100vw - 12px),calc((100dvh - 205px) * .75));
+    max-width:none;
+    aspect-ratio:9/12;
+    margin:2px auto 0;
+    flex-shrink:1;
+  }
+  #screen-match .top-panel{
+    flex:0 0 auto;
+    margin-bottom:3px;
+  }
+  #screen-match .action-panel{
+    flex:0 0 auto;
+    min-height:34px;
+    margin-top:2px;
+  }
+  #screen-match .controls{
+    flex:0 0 auto;
+    margin-top:2px;
+    gap:5px;
+  }
+  #screen-match #message{
+    flex:0 0 auto;
+    min-height:14px;
+    margin-top:1px;
+    font-size:11px;
+  }
+  #boardWrapper{
+    border-radius:18px;
+    padding:3px;
+  }
+  .cell{
+    min-width:0;
+    min-height:0;
+  }
+  .piece{
+    width:66%;
+    height:66%;
+    font-size:clamp(11px,4vw,17px);
+  }
+  .piece.defence{border-radius:5px}
+  .piece.attack{
+    border-left-width:clamp(12px,4vw,17px);
+    border-right-width:clamp(12px,4vw,17px);
+    border-bottom-width:clamp(23px,7.2vw,32px);
+  }
+  .piece.attack .symbol{
+    top:clamp(8px,2.6vw,11px);
+    font-size:clamp(10px,3.2vw,13px);
+  }
+  .piece.attack.possession::after{
+    width:clamp(34px,11vw,44px);
+    height:clamp(34px,11vw,44px);
+  }
+}
+
+
+@media(max-width:700px) and (max-height:760px){
+  #screen-match #boardWrapper{
+    width:min(calc(100vw - 12px),calc((100dvh - 182px) * .75));
+  }
+  #screen-match .player-card{padding:2px}
+  #screen-match .player-name{font-size:9px}
+  #screen-match .score{font-size:17px}
+  #screen-match .timer-box{padding:2px 4px}
+  #screen-match .timer-value{font-size:12px}
+  #screen-match #turnLabel{font-size:12px}
+  #screen-match .action-panel{min-height:29px}
+  #screen-match .controls button{padding:7px 9px;font-size:11px}
+}
+@media(max-width:700px) and (max-height:650px){
+  #screen-match #boardWrapper{
+    width:min(calc(100vw - 12px),calc((100dvh - 162px) * .75));
+  }
+  #screen-match .action-panel{min-height:25px}
+  #screen-match #message{display:none}
+}
+
+
+/* Final attack-piece sizing: keep triangles clearly inside each board square */
+.piece.attack{
+  border-left-width:clamp(10px,3.1vw,15px)!important;
+  border-right-width:clamp(10px,3.1vw,15px)!important;
+  border-bottom-width:clamp(20px,5.8vw,28px)!important;
+}
+.piece.attack .symbol{
+  top:clamp(7px,2.1vw,10px)!important;
+  font-size:clamp(9px,2.8vw,12px)!important;
+}
+.piece.attack.possession::after{
+  width:clamp(31px,9.5vw,40px)!important;
+  height:clamp(31px,9.5vw,40px)!important;
+}
+
+
+/* Always-visible gameplay controls */
+#screen-match .match-toolbar{
+  display:grid;
+  grid-template-columns:1.25fr .85fr .85fr;
+  gap:5px;
+  width:100%;
+  flex:0 0 auto;
+  margin:2px 0 3px;
+}
+#screen-match .match-toolbar button{
+  width:100%;
+  min-width:0;
+  padding:7px 6px;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.3px;
+}
+#screen-match .end-turn-btn{
+  border-color:#f6c84a;
+  box-shadow:0 0 12px rgba(246,200,74,.12);
+}
+#screen-match .exit-match-btn{
+  border-color:#ef6674;
+  box-shadow:0 0 12px rgba(239,102,116,.12);
+}
+@media(max-width:700px){
+  #screen-match .match-toolbar{
+    gap:4px;
+    margin:1px 0 2px;
+  }
+  #screen-match .match-toolbar button{
+    padding:6px 4px;
+    font-size:10px;
+  }
+}
+
+/* MANAGER JOURNEY */
+#screen-manager.active{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  overflow:hidden;
+}
+.manager-shell{
+  display:grid;
+  grid-template-columns:minmax(0,1.05fr) minmax(0,1.7fr);
+  gap:10px;
+  flex:1;
+  min-height:0;
+}
+.manager-panel{
+  background:linear-gradient(180deg,rgba(17,26,45,.96),rgba(9,16,30,.96));
+  border:1px solid #2e3d5c;
+  border-radius:14px;
+  padding:12px;
+  min-height:0;
+}
+.manager-left{
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+  overflow:auto;
+}
+.manager-table-panel{
+  overflow:auto;
+}
+.manager-hero{
+  padding:12px;
+  border:1px solid #34466a;
+  border-radius:13px;
+  background:
+    radial-gradient(circle at 85% 15%,rgba(56,223,243,.12),transparent 36%),
+    radial-gradient(circle at 8% 90%,rgba(242,138,59,.10),transparent 40%),
+    #0d1729;
+}
+.manager-hero h2{margin:0 0 5px;font-size:22px}
+.manager-sub{font-size:12px;color:#aebad0;line-height:1.45}
+.manager-stats{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;
+}
+.manager-stat{
+  border:1px solid #2f405e;
+  border-radius:10px;
+  padding:8px 6px;
+  text-align:center;
+  background:#0a1324;
+}
+.manager-stat b{display:block;font-size:18px}
+.manager-stat span{font-size:10px;color:#9eabc0}
+.fixture-card{
+  border:1px solid #40516f;
+  border-radius:12px;
+  padding:10px;
+  background:#0a1324;
+}
+.fixture-teams{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  align-items:center;
+  gap:8px;
+  margin:8px 0;
+  font-weight:800;
+}
+.fixture-teams .home{text-align:right}
+.fixture-teams .away{text-align:left}
+.fixture-vs{font-size:11px;color:#8fa0bc}
+.manager-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+.manager-actions .wide{grid-column:1/-1}
+.manager-name-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:6px;
+}
+.manager-name-row input{
+  width:100%;
+  min-width:0;
+  border:1px solid #344763;
+  border-radius:9px;
+  background:#07101e;
+  color:#fff;
+  padding:9px 10px;
+  font:inherit;
+}
+.manager-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.manager-table th{
+  position:sticky;
+  top:0;
+  z-index:2;
+  background:#111d32;
+  color:#9fb0ca;
+  text-align:center;
+  padding:7px 4px;
+  border-bottom:1px solid #32435f;
+}
+.manager-table th:nth-child(2){text-align:left}
+.manager-table td{
+  padding:7px 4px;
+  text-align:center;
+  border-bottom:1px solid rgba(65,83,112,.35);
+}
+.manager-table td:nth-child(2){text-align:left;font-weight:700}
+.manager-table tr.user-club{background:rgba(56,223,243,.09)}
+.manager-table tr.champion-zone td:first-child{color:#ffd45f;font-weight:900}
+.manager-table tr.top-four td:first-child{color:#6ed6ff;font-weight:800}
+.manager-table tr.bottom-three{background:rgba(237,86,102,.055)}
+.form-mini{display:flex;gap:2px;justify-content:center}
+.form-dot{
+  width:16px;height:16px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:9px;font-weight:900;
+}
+.form-dot.w{background:#1f7a4e}
+.form-dot.d{background:#72601e}
+.form-dot.l{background:#7b2b39}
+.week-results{
+  max-height:170px;
+  overflow:auto;
+  border:1px solid #2e3d5b;
+  border-radius:10px;
+  padding:6px;
+  background:#08111f;
+}
+.week-result{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:7px;
+  padding:5px 2px;
+  font-size:11px;
+  border-bottom:1px solid rgba(76,93,119,.25);
+}
+.week-result:last-child{border-bottom:none}
+.week-result span:first-child{text-align:right}
+.season-complete{
+  border:1px solid #7d6220;
+  background:rgba(119,83,9,.16);
+  border-radius:11px;
+  padding:10px;
+}
+.manager-tabs{display:flex;gap:5px;flex-wrap:wrap}
+.manager-tabs button.active{background:#086b86}
+@media(max-width:760px){
+  #screen-manager.active{overflow:auto}
+  .manager-shell{grid-template-columns:1fr;display:flex;flex-direction:column}
+  .manager-left,.manager-table-panel{overflow:visible}
+  .manager-table-panel{min-height:420px}
+  .manager-table{font-size:11px}
+  .manager-table th,.manager-table td{padding:6px 3px}
+}
+
+
+/* Manager Journey has no playable-piece / legal-move visual assistance. */
+body.manager-journey-match .cell.legal,
+body.manager-journey-match .cell.valid,
+body.manager-journey-match .cell.move-option,
+body.manager-journey-match .cell.possible,
+body.manager-journey-match .cell.highlight,
+body.manager-journey-match .piece.selectable,
+body.manager-journey-match .piece.can-move,
+body.manager-journey-match .piece.available{
+  box-shadow:none!important;
+  outline:none!important;
+  filter:none!important;
+}
+body.manager-journey-match .cell.legal::after,
+body.manager-journey-match .cell.valid::after,
+body.manager-journey-match .cell.move-option::after,
+body.manager-journey-match .cell.possible::after,
+body.manager-journey-match .cell.highlight::after{
+  display:none!important;
+}
+
+
+/* Manager Journey: remove ALL move/play hints while preserving selected-piece feedback only if explicitly clicked. */
+body.manager-journey-match #board .cell.legal,
+body.manager-journey-match #board .cell.valid,
+body.manager-journey-match #board .cell.move-option,
+body.manager-journey-match #board .cell.possible,
+body.manager-journey-match #board .cell.highlight,
+body.manager-journey-match #board .cell.target,
+body.manager-journey-match #board .cell.reachable{
+  background:inherit!important;
+  box-shadow:none!important;
+  outline:none!important;
+  border-color:inherit!important;
+}
+body.manager-journey-match #board .cell.legal::before,
+body.manager-journey-match #board .cell.legal::after,
+body.manager-journey-match #board .cell.valid::before,
+body.manager-journey-match #board .cell.valid::after,
+body.manager-journey-match #board .cell.move-option::before,
+body.manager-journey-match #board .cell.move-option::after,
+body.manager-journey-match #board .cell.possible::before,
+body.manager-journey-match #board .cell.possible::after,
+body.manager-journey-match #board .cell.highlight::before,
+body.manager-journey-match #board .cell.highlight::after,
+body.manager-journey-match #board .cell.target::before,
+body.manager-journey-match #board .cell.target::after,
+body.manager-journey-match #board .cell.reachable::before,
+body.manager-journey-match #board .cell.reachable::after{
+  display:none!important;
+  content:none!important;
+}
+body.manager-journey-match #board .piece.selectable,
+body.manager-journey-match #board .piece.can-move,
+body.manager-journey-match #board .piece.available{
+  box-shadow:none!important;
+  outline:none!important;
+  filter:none!important;
+}
+
+
+/* =========================
+   BOARD & PIECE SCHEMES
+   ========================= */
+#screen-themes.active{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  overflow:hidden;
+}
+.theme-intro{
+  background:linear-gradient(180deg,rgba(17,26,45,.96),rgba(9,16,30,.96));
+  border:1px solid #30415f;
+  border-radius:13px;
+  padding:10px 12px;
+}
+.theme-intro p{margin:4px 0 0;color:#9eabc0;font-size:12px;line-height:1.45}
+.theme-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  overflow:auto;
+  min-height:0;
+  padding:1px 2px 8px;
+}
+.theme-card{
+  position:relative;
+  border:1px solid #30415d;
+  border-radius:13px;
+  padding:9px;
+  background:#0a1324;
+  min-width:0;
+}
+.theme-card.selected{
+  border-color:#f0c84b;
+  box-shadow:inset 0 0 0 1px rgba(240,200,75,.38);
+}
+.theme-card.locked{opacity:.72}
+.theme-card h3{margin:8px 0 2px;font-size:14px}
+.theme-card p{margin:0 0 7px;font-size:10px;color:#95a5be;line-height:1.35}
+.theme-lock{
+  position:absolute;right:8px;top:8px;
+  padding:3px 6px;border-radius:999px;
+  background:rgba(4,8,16,.82);border:1px solid #42516a;
+  font-size:9px;font-weight:900;
+}
+.theme-lock.unlocked{color:#6be1a4;border-color:#2f7855}
+.theme-preview{
+  height:92px;
+  border-radius:10px;
+  border:2px solid #33415d;
+  overflow:hidden;
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  grid-template-rows:repeat(4,1fr);
+  position:relative;
+}
+.theme-preview i{border:1px solid rgba(255,255,255,.08)}
+.theme-preview .mini-piece{
+  position:absolute;width:18px;height:18px;border-radius:4px;
+  box-shadow:0 2px 5px rgba(0,0,0,.35);
+}
+.theme-preview .mini-a{left:18%;top:23%}
+.theme-preview .mini-b{right:18%;bottom:22%;border-radius:50%}
+.theme-preview .mini-c{
+  left:48%;top:53%;width:0;height:0;border-radius:0;background:transparent!important;
+  border-left:9px solid transparent!important;border-right:9px solid transparent!important;
+  transform:translate(-50%,-50%);
+}
+.theme-card button{width:100%}
+.theme-progress{
+  display:flex;gap:5px;flex-wrap:wrap;margin-top:7px
+}
+.theme-chip{
+  font-size:9px;border:1px solid #33445e;border-radius:999px;
+  padding:3px 7px;color:#9fb0c7;background:#08111f
+}
+@media(max-width:650px){
+  #screen-themes.active{overflow:auto}
+  .theme-grid{grid-template-columns:1fr;overflow:visible}
+}
+
+/* Preview palettes */
+.theme-preview.classic{background:#121b2c}
+.theme-preview.classic i{background:#263247}
+.theme-preview.classic .mini-a{background:#1fd5e8}
+.theme-preview.classic .mini-b{background:#e97328}
+.theme-preview.classic .mini-c{border-bottom:18px solid #1fd5e8}
+
+.theme-preview.night{background:#020713;border-color:#293f82}
+.theme-preview.night i{background:linear-gradient(135deg,#08152d,#0d2140)}
+.theme-preview.night .mini-a{background:linear-gradient(135deg,#70f6ff,#1677ff);box-shadow:0 0 9px #2ee7ff}
+.theme-preview.night .mini-b{background:linear-gradient(135deg,#ff68d7,#7638ff);box-shadow:0 0 9px #ff68d7}
+.theme-preview.night .mini-c{border-bottom:18px solid #70f6ff;filter:drop-shadow(0 0 5px #2ee7ff)}
+
+.theme-preview.grass{background:#18331f;border-color:#4d7f55}
+.theme-preview.grass i:nth-child(odd){background:#244c2c}
+.theme-preview.grass i:nth-child(even){background:#2d5935}
+.theme-preview.grass .mini-a{background:#f4f5ef}
+.theme-preview.grass .mini-b{background:#ffcf42}
+.theme-preview.grass .mini-c{border-bottom:18px solid #f4f5ef}
+
+.theme-preview.sunset{background:#35152d;border-color:#ef864b}
+.theme-preview.sunset i{background:linear-gradient(135deg,#2c1738,#5b1f3e)}
+.theme-preview.sunset .mini-a{background:linear-gradient(135deg,#ffd55f,#ff7a3d)}
+.theme-preview.sunset .mini-b{background:linear-gradient(135deg,#6ff2ff,#497cff)}
+.theme-preview.sunset .mini-c{border-bottom:18px solid #ffd55f}
+
+.theme-preview.royal{background:#17111f;border-color:#c69b3d}
+.theme-preview.royal i{background:linear-gradient(135deg,#21182b,#30233d)}
+.theme-preview.royal .mini-a{background:linear-gradient(135deg,#ffe790,#be8a1f)}
+.theme-preview.royal .mini-b{background:linear-gradient(135deg,#f6f0ff,#8e6ac8)}
+.theme-preview.royal .mini-c{border-bottom:18px solid #ffe790}
+
+.theme-preview.arctic{background:#d9edf3;border-color:#7dc3d7}
+.theme-preview.arctic i{background:linear-gradient(135deg,#dff6fb,#b9dce8)}
+.theme-preview.arctic .mini-a{background:linear-gradient(135deg,#0e5a7d,#23afd1)}
+.theme-preview.arctic .mini-b{background:linear-gradient(135deg,#6c2fa2,#c25af0)}
+.theme-preview.arctic .mini-c{border-bottom:18px solid #0e5a7d}
+
+.theme-preview.volcano{background:#170807;border-color:#ba3b20}
+.theme-preview.volcano i{background:linear-gradient(135deg,#210b09,#42120c)}
+.theme-preview.volcano .mini-a{background:linear-gradient(135deg,#ffde5d,#ff3b1f);box-shadow:0 0 9px #ff4c23}
+.theme-preview.volcano .mini-b{background:linear-gradient(135deg,#ecf0f5,#66707d)}
+.theme-preview.volcano .mini-c{border-bottom:18px solid #ffde5d;filter:drop-shadow(0 0 5px #ff4c23)}
+
+.theme-preview.galaxy{background:#070616;border-color:#7b66d9}
+.theme-preview.galaxy i{background:
+  radial-gradient(circle at 25% 30%,rgba(255,255,255,.5) 0 1px,transparent 1.5px),
+  linear-gradient(135deg,#0e0b26,#20134e)}
+.theme-preview.galaxy .mini-a{background:linear-gradient(135deg,#66fff0,#27a1ff);box-shadow:0 0 10px #55eaff}
+.theme-preview.galaxy .mini-b{background:linear-gradient(135deg,#ffb454,#ff43a4);box-shadow:0 0 10px #ff69bd}
+.theme-preview.galaxy .mini-c{border-bottom:18px solid #66fff0;filter:drop-shadow(0 0 6px #55eaff)}
+
+/* LIVE BOARD THEMES */
+
+/* 1. Classic Arena — default */
+body.theme-classic #boardWrapper{background:#121b2c;border-color:#28344e}
+body.theme-classic #board .cell{background:#263247;border-color:#172136}
+body.theme-classic #board .cell.scoring-zone{background:#72551c}
+body.theme-classic #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#2be2f4,#009fbe)}
+body.theme-classic #board .piece.orange:not(.attack){background:linear-gradient(145deg,#f58a32,#c55315)}
+body.theme-classic #board .piece.attack.cyan{border-bottom-color:#18cfe7}
+body.theme-classic #board .piece.attack.orange{border-bottom-color:#e46d25}
+
+/* 2. Midnight Neon */
+body.theme-night #boardWrapper{background:#020713;border-color:#294788;box-shadow:inset 0 0 28px rgba(28,92,255,.12)}
+body.theme-night #board .cell{
+  background:linear-gradient(135deg,#08142c,#0c1d39);
+  border-color:#142a50;
+}
+body.theme-night #board .cell.middle-line{border-bottom-color:#4cecff}
+body.theme-night #board .cell.scoring-zone{background:#392766;box-shadow:inset 0 0 0 3px #e5c55a}
+body.theme-night #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#77fbff,#1679ff);box-shadow:0 0 11px rgba(67,225,255,.7)}
+body.theme-night #board .piece.orange:not(.attack){background:linear-gradient(145deg,#ff72d9,#7137ff);box-shadow:0 0 11px rgba(255,84,210,.65)}
+body.theme-night #board .piece.attack.cyan{border-bottom-color:#6df8ff;filter:drop-shadow(0 0 5px #39ddff)}
+body.theme-night #board .piece.attack.orange{border-bottom-color:#ff65d4;filter:drop-shadow(0 0 5px #d749ff)}
+
+/* 3. Emerald Pitch */
+body.theme-grass #boardWrapper{background:#102619;border-color:#4c7754}
+body.theme-grass #board .cell{background:#254c2c;border-color:#17391f}
+body.theme-grass #board .cell:nth-child(even){background:#2c5734}
+body.theme-grass #board .cell.middle-line{border-bottom-color:#ecf6e9}
+body.theme-grass #board .cell.scoring-zone{background:#66722c;box-shadow:inset 0 0 0 3px #e8d35a}
+body.theme-grass #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#ffffff,#cfd9da);color:#163249}
+body.theme-grass #board .piece.orange:not(.attack){background:linear-gradient(145deg,#ffd84f,#f2a817);color:#3b2b00}
+body.theme-grass #board .piece.attack.cyan{border-bottom-color:#eef6f7}
+body.theme-grass #board .piece.attack.orange{border-bottom-color:#ffd04b}
+
+/* 4. Sunset Circuit */
+body.theme-sunset #boardWrapper{background:#2a1028;border-color:#e77747}
+body.theme-sunset #board .cell{background:linear-gradient(135deg,#2f173b,#541d3c);border-color:#682543}
+body.theme-sunset #board .cell.middle-line{border-bottom-color:#ffba6f}
+body.theme-sunset #board .cell.scoring-zone{background:#78472b;box-shadow:inset 0 0 0 3px #ffd675}
+body.theme-sunset #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#ffdf67,#ff753d);color:#3b1b0c}
+body.theme-sunset #board .piece.orange:not(.attack){background:linear-gradient(145deg,#7ef4ff,#4e70ff)}
+body.theme-sunset #board .piece.attack.cyan{border-bottom-color:#ffd867}
+body.theme-sunset #board .piece.attack.orange{border-bottom-color:#65eaff}
+
+/* 5. Royal Gold */
+body.theme-royal #boardWrapper{background:#100b17;border-color:#b38b3b}
+body.theme-royal #board .cell{background:linear-gradient(135deg,#1b1424,#2a1f35);border-color:#3b2b4d}
+body.theme-royal #board .cell.middle-line{border-bottom-color:#dfbd65}
+body.theme-royal #board .cell.scoring-zone{background:#604a20;box-shadow:inset 0 0 0 3px #ffe89a}
+body.theme-royal #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#ffe99a,#b98419);color:#2a1b00;box-shadow:0 0 8px rgba(226,181,72,.4)}
+body.theme-royal #board .piece.orange:not(.attack){background:linear-gradient(145deg,#f6f0ff,#8d69c8);color:#20152d}
+body.theme-royal #board .piece.attack.cyan{border-bottom-color:#f2c95d}
+body.theme-royal #board .piece.attack.orange{border-bottom-color:#c3a7f1}
+
+/* 6. Arctic Prism */
+body.theme-arctic #boardWrapper{background:#d6eef4;border-color:#78bdd0}
+body.theme-arctic #board .cell{background:linear-gradient(135deg,#dff6fb,#b9dce7);border-color:#9ccbd6}
+body.theme-arctic #board .cell.middle-line{border-bottom-color:#4f899b}
+body.theme-arctic #board .cell.scoring-zone{background:#d8d48a;box-shadow:inset 0 0 0 3px #907f22}
+body.theme-arctic #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#0c5475,#24afd0)}
+body.theme-arctic #board .piece.orange:not(.attack){background:linear-gradient(145deg,#6d319f,#c35bed)}
+body.theme-arctic #board .piece.attack.cyan{border-bottom-color:#0e6689}
+body.theme-arctic #board .piece.attack.orange{border-bottom-color:#a443d5}
+
+/* 7. Volcanic Core */
+body.theme-volcano #boardWrapper{background:#120504;border-color:#9e321d;box-shadow:inset 0 0 28px rgba(255,68,25,.13)}
+body.theme-volcano #board .cell{background:linear-gradient(135deg,#210b08,#42120c);border-color:#5e1a10}
+body.theme-volcano #board .cell.middle-line{border-bottom-color:#ff7041}
+body.theme-volcano #board .cell.scoring-zone{background:#72320e;box-shadow:inset 0 0 0 3px #ffb43f}
+body.theme-volcano #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#ffe15c,#ff351d);color:#310900;box-shadow:0 0 10px rgba(255,70,28,.58)}
+body.theme-volcano #board .piece.orange:not(.attack){background:linear-gradient(145deg,#eef2f6,#636d79);color:#17202a}
+body.theme-volcano #board .piece.attack.cyan{border-bottom-color:#ffcf3f;filter:drop-shadow(0 0 5px #ff4c23)}
+body.theme-volcano #board .piece.attack.orange{border-bottom-color:#aeb6bf}
+
+/* 8. Galaxy Crown */
+body.theme-galaxy #boardWrapper{
+  background:
+    radial-gradient(circle at 20% 20%,rgba(66,114,255,.2),transparent 28%),
+    radial-gradient(circle at 80% 75%,rgba(255,73,191,.16),transparent 26%),
+    #050413;
+  border-color:#725fc8;box-shadow:inset 0 0 35px rgba(118,77,255,.18)
+}
+body.theme-galaxy #board .cell{
+  background:
+    radial-gradient(circle at 25% 30%,rgba(255,255,255,.42) 0 1px,transparent 1.4px),
+    radial-gradient(circle at 75% 72%,rgba(255,255,255,.28) 0 1px,transparent 1.3px),
+    linear-gradient(135deg,#0c0921,#1b1043);
+  border-color:#29205a;
+}
+body.theme-galaxy #board .cell.middle-line{border-bottom-color:#7cecff}
+body.theme-galaxy #board .cell.scoring-zone{background:#4c376f;box-shadow:inset 0 0 0 3px #ffd76b}
+body.theme-galaxy #board .piece.cyan:not(.attack){background:linear-gradient(145deg,#6dfff0,#258eff);box-shadow:0 0 12px rgba(78,231,255,.75)}
+body.theme-galaxy #board .piece.orange:not(.attack){background:linear-gradient(145deg,#ffb450,#ff43a6);box-shadow:0 0 12px rgba(255,77,179,.72)}
+body.theme-galaxy #board .piece.attack.cyan{border-bottom-color:#64fff0;filter:drop-shadow(0 0 6px #4de8ff)}
+body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter:drop-shadow(0 0 6px #ff55a9)}
+
+
+.secondary-score{font-size:9px;color:#9fb0c7;margin-top:1px;white-space:nowrap}
+.secondary-score b{color:#f2cf64;font-size:11px}
+.secondary-result{font-size:12px;color:#aab7cb;margin:2px 0 8px}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- MAIN MENU -->
+<section id="screen-menu" class="screen active">
+  <div class="title">
+    <h1>DMA ARENA</h1>
+    <p>Defence · Midfield · Attack</p>
+  </div>
+  <div class="card">
+    <div class="menu-grid">
+      <button class="menu-btn primary" onclick="openPlayMenu()">PLAY</button>
+      <button class="menu-btn gold" onclick="openManagerJourney()">MANAGER JOURNEY
+        <span style="display:block;font-size:11px;opacity:.72;margin-top:3px">16-team league · 30 gameweeks</span>
+      </button>
+      <button class="menu-btn" onclick="showScreen('screen-multiplayer')">MULTIPLAYER</button>
+      <button class="menu-btn" onclick="startLearnTutorial()">TUTORIAL</button>
+      <button class="menu-btn" onclick="showScreen('screen-rules')">RULES</button>
+      <button class="menu-btn gold" onclick="showScreen('screen-leaderboard')">LEADERBOARD</button>
+      <button class="menu-btn" onclick="showScreen('screen-profile')">PROFILE</button>
+      <button class="menu-btn" onclick="openThemeGarage()">BOARD & PIECES
+        <span style="display:block;font-size:11px;opacity:.72;margin-top:3px">Schemes · Unlocks · Customise</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+
+
+<!-- BOARD & PIECE SCHEMES -->
+<section id="screen-themes" class="screen">
+  <div class="back-row">
+    <button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button>
+    <strong>BOARD & PIECES</strong>
+  </div>
+
+  <div class="theme-intro">
+    <strong>ARENA SCHEMES</strong>
+    <p>Choose a complete board-and-piece look. Three schemes are available immediately. More distinctive designs unlock permanently as you progress through Manager Journey.</p>
+    <div id="themeProgress" class="theme-progress"></div>
+  </div>
+
+  <div id="themeGrid" class="theme-grid"></div>
+</section>
+
+<!-- MANAGER JOURNEY -->
+<section id="screen-manager" class="screen">
+  <div class="back-row">
+    <button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button>
+    <strong>MANAGER JOURNEY</strong>
+  </div>
+
+  <div class="manager-shell">
+    <div class="manager-panel manager-left">
+      <div class="manager-hero">
+        <div style="font-size:10px;color:#7fd8ee;font-weight:800;letter-spacing:1px">DMA LEAGUE</div>
+        <h2 id="managerClubTitle">YOUR CLUB</h2>
+        <div id="managerSeasonStatus" class="manager-sub">Build your club and begin a 30-gameweek season against 15 AI managers.</div>
+      </div>
+
+      <div id="managerSetupBlock">
+        <div class="manager-name-row">
+          <input id="managerClubNameInput" maxlength="24" value="DMA United" aria-label="Club name">
+          <button class="small-btn primary" onclick="startManagerSeason()">START SEASON</button>
+        </div>
+        <div class="manager-sub" style="margin-top:6px">
+          The league has 16 clubs. You play every opponent home and away. Win = 3 points, draw = 1, loss = 0.
+        </div>
+      </div>
+
+      <div id="managerActiveBlock" style="display:none">
+        <div class="manager-stats">
+          <div class="manager-stat"><b id="managerWeekStat">1/30</b><span>GAMEWEEK</span></div>
+          <div class="manager-stat"><b id="managerPositionStat">–</b><span>POSITION</span></div>
+          <div class="manager-stat"><b id="managerPointsStat">0</b><span>POINTS</span></div>
+        </div>
+
+        <div class="fixture-card">
+          <div style="font-size:10px;color:#91a6c5;font-weight:800">NEXT FIXTURE</div>
+          <div id="managerFixtureLabel" class="fixture-teams"></div>
+          <div id="managerFixtureMeta" class="manager-sub"></div>
+        </div>
+
+        <div class="manager-actions">
+          <button id="managerPlayBtn" class="small-btn primary wide" onclick="playManagerFixture()">PLAY NEXT MATCH</button>
+          <button class="small-btn" onclick="managerShowTab('table')">LEAGUE TABLE</button>
+          <button class="small-btn" onclick="managerShowTab('results')">WEEK RESULTS</button>
+          <button class="small-btn wide" onclick="resetManagerSeason()">RESET SEASON</button>
+        </div>
+
+        <div id="managerWeekResults" class="week-results" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="manager-panel manager-table-panel">
+      <div class="manager-tabs" style="margin-bottom:7px">
+        <button id="managerTabTable" class="small-btn active" onclick="managerShowTab('table')">TABLE</button>
+        <button id="managerTabResults" class="small-btn" onclick="managerShowTab('results')">LATEST RESULTS</button>
+        <button id="managerTabFixtures" class="small-btn" onclick="managerShowTab('fixtures')">MY FIXTURES</button>
+      </div>
+
+      <div id="managerTableView">
+        <table class="manager-table">
+          <thead>
+            <tr><th>#</th><th>Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Sec</th><th>Pts</th><th>Form</th></tr>
+          </thead>
+          <tbody id="managerLeagueBody"></tbody>
+        </table>
+      </div>
+
+      <div id="managerResultsView" style="display:none"></div>
+      <div id="managerFixturesView" style="display:none"></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAY MENU -->
+<section id="screen-playmenu" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>PLAY</strong></div>
+  <div class="card">
+    <div class="menu-grid">
+      <button class="menu-btn" onclick="startFormationBuilder('ai','beginner')">
+        Beginner AI
+        <span style="display:block;font-size:11px;opacity:.72;margin-top:3px">Core AI — easier tactical decisions</span>
+      </button>
+      <button class="menu-btn primary" onclick="startFormationBuilder('ai','hard')">
+        Hard AI
+        <span style="display:block;font-size:11px;opacity:.78;margin-top:3px">Advanced positioning, possession security & scoring tactics</span>
+      </button>
+      <button class="menu-btn" onclick="startFormationBuilder('local')">Local Multiplayer</button>
+    </div>
+  </div>
+</section>
+
+<!-- MULTIPLAYER -->
+<section id="screen-multiplayer" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>MULTIPLAYER</strong></div>
+  <div class="card">
+    <div class="menu-grid">
+      <button class="menu-btn primary" onclick="startFormationBuilder('local')">Play on This Device</button>
+      <button class="menu-btn" disabled>Quick Match — Online coming later</button>
+      <button class="menu-btn" disabled>Create Private Game — Backend required</button>
+      <button class="menu-btn" disabled>Join Private Game — Backend required</button>
+    </div>
+    <div class="notice" style="margin-top:12px">
+      The local multiplayer mode is fully playable in this prototype. Each side uses 10 pieces selected from the same 12-piece squad pool, with structured football-style formations such as 4-3-3, 4-4-2 and 3-3-4. True online multiplayer needs a server so both players share the same authoritative board, timer, moves and result.
+    </div>
+  </div>
+</section>
+
+<!-- RULES -->
+<section id="screen-rules" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>RULES</strong></div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="showRuleTab(0,this)">Objective</button>
+      <button class="tab" onclick="showRuleTab(1,this)">Movement</button>
+      <button class="tab" onclick="showRuleTab(2,this)">Possession</button>
+      <button class="tab" onclick="showRuleTab(3,this)">Scoring</button>
+      <button class="tab" onclick="showRuleTab(4,this)">Match</button>
+    </div>
+    <div class="rules-section active">
+      <h3>Objective</h3>
+      <p>Use your 10 pieces to control possession, create passing opportunities, block the opponent and score more goals before full-time. Secondary Points reward possession wins and qualifying passes.</p>
+      <div class="points-grid">
+        <div class="point-card"><b>+3</b>Goal</div>
+        <div class="point-card"><b>+1</b>Take Possession</div>
+        <div class="point-card"><b>+1</b>Pass when passer & receiver are both in opposition half</div>
+      </div>
+      <p>Square = Defence, Circle = Midfield, Triangle = Attack.</p>
+    </div>
+    <div class="rules-section">
+      <h3>Movement</h3>
+      <ul>
+        <li><b>+</b> moves horizontally or vertically, any legal distance.</li>
+        <li><b>♦</b> moves horizontally, vertically or diagonally, any legal distance.</li>
+        <li>Defence stays in its own half.</li>
+        <li>Midfield can operate in both halves.</li>
+        <li>Attack can enter the attacking half; once it does, it cannot return.</li>
+        <li>Attack may skip Attack and Midfield pieces from either team.</li>
+        <li>Defence pieces block an Attack piece's movement path.</li>
+        <li>A piece cannot finish a move on an occupied square.</li>
+      </ul>
+    </div>
+    <div class="rules-section">
+      <h3>Possession</h3>
+      <ul>
+        <li>The red ring shows which piece has possession.</li>
+        <li>A pass changes possession only; the pieces do not move.</li>
+        <li>Passes can travel horizontally, vertically or diagonally.</li>
+        <li>Opponents block a passing lane; your own teammates do not.</li>
+        <li>Take Possession earns +1.</li>
+        <li>A piece must already be in a legal taking position when the turn begins. It cannot move into position and then Take Possession in the same turn.</li>
+        <li>A + piece may Take Possession from farther away when aligned in the same row or column and both pieces are in the same half.</li>
+      </ul>
+    </div>
+    <div class="rules-section">
+      <h3>Scoring</h3>
+      <ul>
+        <li>Only a possession piece may enter the opponent's gold scoring block.</li>
+        <li>No piece may enter its own scoring block.</li>
+        <li>A goal earns +3.</li>
+        <li>If the possession piece already moved with possession during that turn, it cannot later move into the scoring block during the same turn.</li>
+      </ul>
+    </div>
+    <div class="rules-section">
+      <h3>Match Structure</h3>
+      <ul>
+        <li>5-minute match: two halves of 2:30.</li>
+        <li>Each turn gives 3 actions and up to 30 seconds.</li>
+        <li>At half-time the board restarts from the chosen formation.</li>
+        <li>The opponent/Orange side starts the second half with possession.</li>
+        <li>Scores continue through half-time.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- LEADERBOARD -->
+<section id="screen-leaderboard" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>LEADERBOARD</strong></div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active">Global</button><button class="tab">Weekly</button><button class="tab">Daily</button><button class="tab">Friends</button>
+    </div>
+    <div class="notice">Leaderboard ranking prioritises goals. When goals are tied, Secondary Points (Take Possession + qualifying passes) are the next tiebreaker. Prototype data is local; a shared leaderboard will require online accounts and a backend.</div>
+    <div class="table-wrap" style="margin-top:10px">
+      <table>
+        <thead><tr><th>#</th><th>Player</th><th>Goals</th><th>Secondary</th><th>W</th><th>L</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>DMA Master</td><td>86</td><td>214</td><td>31</td><td>8</td></tr>
+          <tr><td>2</td><td>Midfield King</td><td>79</td><td>229</td><td>27</td><td>10</td></tr>
+          <tr><td>3</td><td>Zone Breaker</td><td>79</td><td>201</td><td>24</td><td>11</td></tr>
+          <tr><td>4</td><td>You</td><td id="leaderGoals">0</td><td id="leaderSecondary">0</td><td id="leaderWins">0</td><td id="leaderLosses">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PROFILE -->
+<section id="screen-profile" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="showScreen('screen-menu')">← Main Menu</button><strong>PROFILE</strong></div>
+  <div class="card">
+    <h2 style="margin-top:0">PLAYER PROFILE</h2>
+    <div class="profile-grid">
+      <div class="stat"><b id="profileRating">1200</b>DMA Rating</div>
+      <div class="stat"><b id="profileWins">0</b>Wins</div>
+      <div class="stat"><b id="profileLosses">0</b>Losses</div>
+      <div class="stat"><b id="profileGames">0</b>Games</div>
+      <div class="stat"><b id="profileGoals">0</b>Goals</div>
+      <div class="stat"><b id="profilePossessions">0</b>Possessions Won</div>
+    </div>
+  </div>
+</section>
+
+<!-- FORMATION BUILDER -->
+<section id="screen-formation" class="screen">
+  <div class="back-row"><button class="small-btn" onclick="backFromFormation()">← Back</button><strong>FORMATION BUILDER</strong></div>
+  <div class="formation-layout">
+    <div class="tray">
+      <h3>Your Pieces</h3>
+      <div id="pieceTray"></div>
+      <div class="formation-help">You have 12 available pieces and choose 10. Build a football-style shape in your own half, such as 4-3-3, 4-4-2 or 3-3-4. You cannot use the scoring block. The 2 unselected pieces remain out of the match.</div>
+      <div class="saved-formations">
+        <select id="savedFormationSelect"><option value="">Saved formations</option></select>
+      </div>
+      <div class="formation-actions">
+        <button class="small-btn" onclick="clearFormation()">Clear</button>
+        <button class="small-btn" onclick="loadDefaultFormation()">Default</button>
+        <button class="small-btn gold" onclick="randomizeFormation()">Random</button>
+        <button class="small-btn" onclick="saveFormationPreset()">Save Formation</button>
+        <button id="startMatchFromFormation" class="small-btn primary" onclick="confirmFormationAndStart()">Start Match</button>
+      </div>
+    </div>
+    <div>
+      <div id="formationBoardWrapper" class="card" style="padding:5px">
+        <div id="formationBoard" style="display:grid;grid-template-columns:repeat(9,1fr)"></div>
+      </div>
+      <div id="formationMessage" class="notice" style="margin-top:6px;padding:8px 10px;font-size:12px">Select and place any 10 of the 12 available pieces before starting.</div>
+    </div>
+  </div>
+</section>
+
+<!-- MATCH -->
+<section id="screen-match" class="screen">
+  <div class="top-panel">
+    <div id="cyanCard" class="player-card"><div id="cyanTeamName" class="player-name cyan-text">● CYAN</div><div id="cyanScore" class="score">0</div><div class="secondary-score">Secondary <b id="cyanSecondaryScore">0</b></div></div>
+    <div class="centre-info">
+      <div id="halfLabel">FIRST HALF</div><div id="turnLabel">YOUR TURN</div><div id="modeLabel"></div>
+      <div>⚡ <span id="action1" class="action-dot"></span><span id="action2" class="action-dot"></span><span id="action3" class="action-dot"></span></div>
+      <div class="timers">
+        <div class="timer-box"><div class="timer-label">MATCH</div><div id="gameTimer" class="timer-value">5:00</div></div>
+        <div class="timer-box"><div class="timer-label">TURN</div><div id="turnTimer" class="timer-value">0:30</div></div>
+      </div>
+    </div>
+    <div id="orangeCard" class="player-card"><div id="orangeTeamName" class="player-name orange-text">ORANGE ●</div><div id="orangeScore" class="score">0</div><div class="secondary-score">Secondary <b id="orangeSecondaryScore">0</b></div></div>
+  </div>
+
+  <div class="match-toolbar">
+    <button id="endPhaseBtn" class="small-btn primary end-turn-btn" onclick="playerEndTurn()">END TURN</button>
+    <button class="small-btn gold" onclick="togglePause()" id="pauseButton">PAUSE</button>
+    <button id="exitMatchBtn" class="small-btn exit-match-btn" onclick="exitCurrentMatch()">EXIT</button>
+  </div>
+
+  <div id="boardWrapper"><div id="board"></div><div id="arrowLayer"></div></div>
+
+  <div class="action-panel">
+    <button id="passButton" class="context-btn" onclick="confirmPassPossession()">PASS POSSESSION</button>
+    <button id="takeButton" class="context-btn" onclick="confirmTakePossession()">TAKE POSSESSION</button>
+  </div>
+  <div id="message"></div>
+</section>
+
+<!-- RESULTS -->
+<section id="screen-results" class="screen">
+  <div class="card">
+    <div class="title"><h1>FULL-TIME</h1></div>
+    <div class="match-result-grid">
+      <div style="text-align:center"><strong id="resultCyanName">CYAN</strong></div>
+      <div class="result-score" id="resultScore" style="text-align:center">0 - 0</div><div id="resultSecondaryScore" class="secondary-result" style="text-align:center">Secondary: 0 - 0</div><div class="notice" style="margin-top:5px">Goals determine the match result. Secondary Points are used as a ranking tiebreaker when goal records are level.</div>
+      <div style="text-align:center"><strong id="resultOrangeName">ORANGE</strong></div>
+    </div>
+    <div class="profile-grid" style="margin-top:15px">
+      <div class="stat"><b id="resultGoals">0</b>Your Goals</div>
+      <div class="stat"><b id="resultTakes">0</b>Possessions Won</div>
+      <div class="stat"><b id="resultPasses">0</b>Attacking Passes</div>
+    </div>
+    <div id="normalResultControls" class="controls" style="margin-top:15px">
+      <button class="small-btn primary" onclick="startFormationBuilder(gameMode,gameMode==='ai'?aiDifficulty:null)">Rematch / Formation</button>
+      <button class="small-btn" onclick="showScreen('screen-menu')">Main Menu</button>
+    </div>
+    <div id="managerResultControls" class="controls" style="margin-top:15px;display:none">
+      <button class="small-btn primary" onclick="continueManagerJourney()">CONTINUE MANAGER JOURNEY</button>
+      <button class="small-btn" onclick="showScreen('screen-menu')">Main Menu</button>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<!-- LEARN TUTORIAL -->
+<div id="learnOverlay" class="overlay">
+  <div class="modal">
+    <div class="phase-pill">PART 1 · HOW DMA WORKS</div>
+    <h1 id="learnTitle"></h1>
+    <p id="learnText"></p>
+    <div id="learnExtra"></div>
+    <div id="learnBoard" class="demo-board"></div>
+    <div class="tutorial-actions">
+      <button id="learnNextButton" class="small-btn primary" onclick="nextLearnStep()">Next</button>
+      <button class="small-btn" onclick="closeTutorials()">Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- PRACTICE TUTORIAL -->
+<div id="practiceOverlay" class="overlay">
+  <div class="modal">
+    <div class="phase-pill">PART 2 · HOW TO PLAY</div>
+    <h1 id="practiceTitle"></h1>
+    <p id="practiceText"></p>
+    <div id="practiceBoard" class="demo-board"></div>
+    <div id="practiceInstruction" class="practice-instruction"></div>
+    <button id="practicePassButton" class="small-btn gold">PASS POSSESSION</button>
+    <button id="practiceTakeButton" class="small-btn red">TAKE POSSESSION</button>
+    <div id="practiceSuccess" class="practice-success"></div>
+    <div class="tutorial-actions">
+      <button id="practiceNextButton" class="small-btn primary" disabled>Continue</button>
+      <button class="small-btn" onclick="closeTutorials()">Main Menu</button>
+    </div>
+  </div>
+</div>
+
+<!-- HALF TIME -->
+<div id="halfTimeOverlay" class="overlay">
+  <div class="modal">
+    <h1>HALF-TIME</h1>
+    <h2 id="halfTimeScore">0 - 0</h2><div id="halfTimeSecondary" class="secondary-result">Secondary: 0 - 0</div>
+    <p>Scores and match time continue. The pieces restart from the chosen formations. Orange starts the second half with possession.</p>
+    <button class="small-btn primary" onclick="startSecondHalf()">Start Second Half</button>
+  </div>
+</div>
+
+<script>
+const ROWS=12,COLS=9,GAME_DURATION=300,HALF_TIME_REMAINING=150,TURN_DURATION=30,ACTIONS_PER_TURN=3;
+const HUMAN_TEAM="cyan",AI_TEAM="orange",AI_DELAY=700;
+const goals={top:{row:0,col:4},bottom:{row:11,col:4}};
+let gameMode="ai",aiDifficulty="beginner",cells=[],pieces=[],nextPieceId=1,currentTeam=HUMAN_TEAM,selectedPiece=null,pendingPassReceiver=null,pendingTakePiece=null;
+let scores={cyan:0,orange:0},secondaryScores={cyan:0,orange:0},gameTimeRemaining=GAME_DURATION,turnTimeRemaining=TURN_DURATION,actionsRemaining=ACTIONS_PER_TURN;
+let gameStarted=false,paused=false,gameOver=false,halftimeTriggered=false,halftimeActive=false,roundResetPending=false,gameInterval=null,turnSerial=0,aiMode=null,aiSupportMovesUsed=0;
+let aiPieceMoveCounts={},aiVisitedSquares={};
+let aiGoalBlockerPieceId=null;
+let aiPostTakeActive=false;
+let aiPlannedPassTargetId=null;
+let savedPlayerFormation=[],savedOrangeFormation=[],formationPieces=[],selectedFormationId=null;
+let matchStats={cyanGoals:0,cyanTakes:0,cyanPasses:0,orangeGoals:0,orangeTakes:0,orangePasses:0};
+let profile={rating:1200,wins:0,losses:0,games:0,goals:0,takes:0,secondary:0};
+
+
+/* =========================
+   BOARD & PIECE SCHEMES
+   ========================= */
+const DMA_THEMES=[
+  {id:"classic",name:"Classic Arena",desc:"The original DMA competitive look.",requirement:"Available",defaultUnlocked:true},
+  {id:"night",name:"Midnight Neon",desc:"Electric blue and violet pieces on a deep neon grid.",requirement:"Available",defaultUnlocked:true},
+  {id:"grass",name:"Emerald Pitch",desc:"A football-inspired green board with clean white and gold pieces.",requirement:"Available",defaultUnlocked:true},
+  {id:"sunset",name:"Sunset Circuit",desc:"Warm sunset lanes with contrasting ice-blue opposition pieces.",requirement:"Win 3 Manager Journey matches",wins:3},
+  {id:"royal",name:"Royal Gold",desc:"Dark royal board with premium gold and amethyst pieces.",requirement:"Win 7 Manager Journey matches",wins:7},
+  {id:"arctic",name:"Arctic Prism",desc:"Bright frozen board with crystalline blue and violet pieces.",requirement:"Win 12 Manager Journey matches",wins:12},
+  {id:"volcano",name:"Volcanic Core",desc:"Lava-grid arena with glowing fire and forged-steel pieces.",requirement:"Win 18 Manager Journey matches",wins:18},
+  {id:"galaxy",name:"Galaxy Crown",desc:"The championship scheme — star-field board and cosmic glow pieces.",requirement:"Win the DMA League",champion:true}
+];
+
+let currentDMATheme="classic";
+let unlockedDMAThemes=new Set(["classic","night","grass"]);
+
+function loadThemeProgress(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("dmaUnlockedThemesV1")||"[]");
+    if(Array.isArray(saved))saved.forEach(id=>unlockedDMAThemes.add(id));
+    const selected=localStorage.getItem("dmaSelectedThemeV1");
+    if(selected&&DMA_THEMES.some(t=>t.id===selected))currentDMATheme=selected;
+  }catch(e){}
+}
+
+function saveThemeProgress(){
+  try{
+    localStorage.setItem("dmaUnlockedThemesV1",JSON.stringify([...unlockedDMAThemes]));
+    localStorage.setItem("dmaSelectedThemeV1",currentDMATheme);
+  }catch(e){}
+}
+
+function managerCareerWins(){
+  try{
+    if(managerJourney&&managerJourney.active){
+      const u=managerJourney.teams.find(t=>t.id==="user");
+      return u?u.w:0;
+    }
+  }catch(e){}
+  return 0;
+}
+
+function managerIsChampion(){
+  try{
+    if(!managerJourney||!managerJourney.active||!managerJourney.seasonComplete)return false;
+    const table=managerSortedTable();
+    return !!(table[0]&&table[0].id==="user");
+  }catch(e){return false}
+}
+
+function refreshThemeUnlocks(){
+  const wins=managerCareerWins();
+  DMA_THEMES.forEach(t=>{
+    if(t.defaultUnlocked)unlockedDMAThemes.add(t.id);
+    if(t.wins&&wins>=t.wins)unlockedDMAThemes.add(t.id);
+    if(t.champion&&managerIsChampion())unlockedDMAThemes.add(t.id);
+  });
+  if(!unlockedDMAThemes.has(currentDMATheme))currentDMATheme="classic";
+  saveThemeProgress();
+  applyDMATheme();
+}
+
+function applyDMATheme(){
+  const ids=DMA_THEMES.map(t=>"theme-"+t.id);
+  document.body.classList.remove(...ids);
+  document.body.classList.add("theme-"+currentDMATheme);
+}
+
+function selectDMATheme(id){
+  if(!unlockedDMAThemes.has(id))return;
+  currentDMATheme=id;
+  saveThemeProgress();
+  applyDMATheme();
+  renderThemeGarage();
+}
+
+function openThemeGarage(){
+  refreshThemeUnlocks();
+  renderThemeGarage();
+  showScreen("screen-themes");
+}
+
+function renderThemeGarage(){
+  const grid=document.getElementById("themeGrid");
+  const progress=document.getElementById("themeProgress");
+  if(!grid||!progress)return;
+
+  const wins=managerCareerWins();
+  const champ=managerIsChampion();
+  progress.innerHTML=
+    `<span class="theme-chip">Manager wins: <b>${wins}</b></span>`+
+    `<span class="theme-chip">League title: <b>${champ?"WON":"Not yet"}</b></span>`+
+    `<span class="theme-chip">Unlocked: <b>${unlockedDMAThemes.size}/${DMA_THEMES.length}</b></span>`;
+
+  grid.innerHTML=DMA_THEMES.map(t=>{
+    const unlocked=unlockedDMAThemes.has(t.id);
+    const selected=currentDMATheme===t.id;
+    let status=t.requirement;
+    if(unlocked&&!t.defaultUnlocked)status="Unlocked";
+    return `<div class="theme-card ${selected?"selected":""} ${unlocked?"":"locked"}">
+      <div class="theme-lock ${unlocked?"unlocked":""}">${unlocked?"UNLOCKED":"🔒 LOCKED"}</div>
+      <div class="theme-preview ${t.id}">
+        ${"<i></i>".repeat(24)}
+        <span class="mini-piece mini-a"></span>
+        <span class="mini-piece mini-b"></span>
+        <span class="mini-piece mini-c"></span>
+      </div>
+      <h3>${t.name}${selected?" · SELECTED":""}</h3>
+      <p>${t.desc}</p>
+      <button class="small-btn ${selected?"gold":unlocked?"primary":""}" 
+        ${unlocked?`onclick="selectDMATheme('${t.id}')"`:"disabled"}>
+        ${selected?"IN USE":unlocked?"USE THIS SCHEME":status}
+      </button>
+      ${!unlocked?`<p style="margin-top:6px;color:#d8b866">Unlock: ${t.requirement}</p>`:""}
+    </div>`;
+  }).join("");
+}
+
+loadThemeProgress();
+applyDMATheme();
+
+/* =========================
+   MANAGER JOURNEY
+   ========================= */
+const MANAGER_TEAM_POOL=[
+  "Cape Comets","Mabula City","Royal Leopards","Highveld Rovers","Coastal Kings",
+  "Savanna Stars","Thunder FC","Ironclad United","Blue Horizon","Golden Arrows DMA",
+  "Metro Falcons","Valley Warriors","Red Dunes","Silver Strikers","Ubuntu Athletic",
+  "Night Owls","Riverstone FC","Emerald Eleven","Capital Knights","Phoenix Town",
+  "Lionhearts","Stormbreakers","Diamond City","Eastgate United","Westline Wanderers",
+  "Black Mambas","Sunrise FC","Mountain Rangers","Oceanic Athletic","Vanguard XI"
+];
+
+let managerJourney={
+  active:false,
+  seasonComplete:false,
+  clubName:"DMA United",
+  userTeamId:"user",
+  teams:[],
+  schedule:[],
+  currentWeek:0,
+  completedWeeks:0,
+  latestResults:[],
+  awaitingUserMatch:false,
+  currentFixture:null
+};
+
+function managerTeamBase(id,name,isUser=false){
+  return {
+    id,name,isUser,
+    rating:isUser?72:Math.floor(58+Math.random()*31),
+    p:0,w:0,d:0,l:0,pf:0,pa:0,sf:0,sa:0,pts:0,
+    form:[]
+  };
+}
+
+function shuffleArray(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+function generateManagerTeams(clubName){
+  const names=shuffleArray(MANAGER_TEAM_POOL).slice(0,15);
+  return [
+    managerTeamBase("user",clubName,true),
+    ...names.map((name,i)=>managerTeamBase("ai_"+i,name,false))
+  ];
+}
+
+// Circle method: 16 teams = 15 rounds, then reverse fixtures for 30 gameweeks.
+function generateLeagueSchedule(teamIds){
+  let rotation=[...teamIds];
+  const firstHalf=[];
+  for(let round=0;round<teamIds.length-1;round++){
+    const fixtures=[];
+    for(let i=0;i<rotation.length/2;i++){
+      const a=rotation[i];
+      const b=rotation[rotation.length-1-i];
+      // Alternate home/away to avoid one-sided runs.
+      const swap=((round+i)%2===1);
+      fixtures.push(swap?{home:b,away:a}:{home:a,away:b});
+    }
+    firstHalf.push(fixtures);
+    rotation=[rotation[0],rotation[rotation.length-1],...rotation.slice(1,-1)];
+  }
+  const secondHalf=firstHalf.map(round=>round.map(f=>({home:f.away,away:f.home})));
+  return [...firstHalf,...secondHalf];
+}
+
+function saveManagerJourney(){
+  try{
+    localStorage.setItem("dmaManagerJourneyV1",JSON.stringify(managerJourney));
+  }catch(e){}
+}
+
+function loadManagerJourney(){
+  try{
+    const raw=localStorage.getItem("dmaManagerJourneyV1");
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(!data||!Array.isArray(data.teams)||data.teams.length!==16||!Array.isArray(data.schedule))return false;
+    managerJourney=data;
+    managerJourney.teams.forEach(t=>{if(typeof t.sf!=="number")t.sf=0;if(typeof t.sa!=="number")t.sa=0});
+    return true;
+  }catch(e){return false}
+}
+
+function startManagerSeason(){
+  const input=document.getElementById("managerClubNameInput");
+  const club=(input&&input.value.trim())||"DMA United";
+  managerJourney={
+    active:true,
+    seasonComplete:false,
+    clubName:club.slice(0,24),
+    userTeamId:"user",
+    teams:generateManagerTeams(club.slice(0,24)),
+    schedule:[],
+    currentWeek:0,
+    completedWeeks:0,
+    latestResults:[],
+    awaitingUserMatch:false,
+    currentFixture:null
+  };
+  managerJourney.schedule=generateLeagueSchedule(managerJourney.teams.map(t=>t.id));
+  saveManagerJourney();
+  renderManagerJourney();
+}
+
+function resetManagerSeason(){
+  if(managerJourney.active&&!window.confirm("Reset the current Manager Journey season?"))return;
+  managerJourney={
+    active:false,seasonComplete:false,clubName:"DMA United",userTeamId:"user",
+    teams:[],schedule:[],currentWeek:0,completedWeeks:0,latestResults:[],
+    awaitingUserMatch:false,currentFixture:null
+  };
+  try{localStorage.removeItem("dmaManagerJourneyV1")}catch(e){}
+  renderManagerJourney();
+}
+
+function openManagerJourney(){
+  if(!managerJourney.active)loadManagerJourney();
+  refreshThemeUnlocks();
+  showScreen("screen-manager");
+  renderManagerJourney();
+}
+
+
+function clearManagerJourneyHints(){
+  if(!isManagerJourneyMatch())return;
+  const hintClasses=["legal","valid","move-option","possible","highlight","selectable","can-move","available","target","reachable"];
+  document.querySelectorAll("#board .cell, #board .piece").forEach(el=>{
+    hintClasses.forEach(cls=>el.classList.remove(cls));
+  });
+}
+
+function isManagerJourneyMatch(){
+  return !!(managerJourney&&managerJourney.awaitingUserMatch&&managerJourney.currentFixture);
+}
+function getManagerTeam(id){
+  return managerJourney.teams.find(t=>t.id===id);
+}
+
+function getManagerUserFixture(weekIndex=managerJourney.currentWeek){
+  const round=managerJourney.schedule[weekIndex]||[];
+  return round.find(f=>f.home==="user"||f.away==="user")||null;
+}
+
+function managerSortedTable(){
+  return [...managerJourney.teams].sort((a,b)=>
+    b.pts-a.pts ||
+    ((b.pf-b.pa)-(a.pf-a.pa)) ||
+    b.pf-a.pf ||
+    ((b.sf-b.sa)-(a.sf-a.sa)) ||
+    b.sf-a.sf ||
+    b.w-a.w ||
+    a.name.localeCompare(b.name)
+  );
+}
+
+function managerPosition(){
+  return managerSortedTable().findIndex(t=>t.id==="user")+1;
+}
+
+function formHtml(form){
+  if(!form||!form.length)return '<span style="color:#62738f">–</span>';
+  return `<div class="form-mini">${form.slice(-5).map(x=>`<span class="form-dot ${x.toLowerCase()}">${x}</span>`).join("")}</div>`;
+}
+
+function renderManagerJourney(){
+  const setup=document.getElementById("managerSetupBlock");
+  const active=document.getElementById("managerActiveBlock");
+  if(!setup||!active)return;
+
+  if(!managerJourney.active){
+    setup.style.display="block";
+    active.style.display="none";
+    document.getElementById("managerClubTitle").textContent="YOUR CLUB";
+    document.getElementById("managerSeasonStatus").textContent="Build your club and begin a 30-gameweek season against 15 AI managers.";
+    document.getElementById("managerLeagueBody").innerHTML='<tr><td colspan="12" style="padding:28px;color:#8797af">Start a season to generate the 16-team DMA League.</td></tr>';
+    document.getElementById("managerResultsView").innerHTML="";
+    document.getElementById("managerFixturesView").innerHTML="";
+    return;
+  }
+
+  setup.style.display="none";
+  active.style.display="block";
+
+  const table=managerSortedTable();
+  const user=getManagerTeam("user");
+  const pos=managerPosition();
+
+  document.getElementById("managerClubTitle").textContent=managerJourney.clubName;
+  document.getElementById("managerSeasonStatus").textContent=managerJourney.seasonComplete
+    ?`Season complete — ${table[0].name} are DMA League champions.`
+    :`Season in progress · ${managerJourney.completedWeeks} of 30 gameweeks completed.`;
+
+  document.getElementById("managerWeekStat").textContent=managerJourney.seasonComplete?"30/30":`${Math.min(managerJourney.currentWeek+1,30)}/30`;
+  document.getElementById("managerPositionStat").textContent=pos?`${pos}${pos===1?"st":pos===2?"nd":pos===3?"rd":"th"}`:"–";
+  document.getElementById("managerPointsStat").textContent=user?user.pts:0;
+
+  const playBtn=document.getElementById("managerPlayBtn");
+
+  if(managerJourney.seasonComplete){
+    document.getElementById("managerFixtureLabel").innerHTML=`<div class="season-complete" style="grid-column:1/-1;text-align:center"><b>SEASON COMPLETE</b><br>${table[0].name} finished 1st with ${table[0].pts} points.</div>`;
+    document.getElementById("managerFixtureMeta").textContent=user?`${managerJourney.clubName}: ${user.w}W · ${user.d}D · ${user.l}L · ${user.pts} pts`:"";
+    playBtn.disabled=true;
+    playBtn.textContent="SEASON COMPLETE";
+  }else{
+    const f=getManagerUserFixture();
+    if(f){
+      const home=getManagerTeam(f.home),away=getManagerTeam(f.away);
+      document.getElementById("managerFixtureLabel").innerHTML=
+        `<span class="home">${home.name}</span><span class="fixture-vs">VS</span><span class="away">${away.name}</span>`;
+      const opp=f.home==="user"?away:home;
+      const venue=f.home==="user"?"HOME":"AWAY";
+      document.getElementById("managerFixtureMeta").textContent=`Gameweek ${managerJourney.currentWeek+1} · ${venue} · Opponent strength ${opp.rating}/100`;
+      playBtn.disabled=false;
+      playBtn.textContent=`PLAY GAMEWEEK ${managerJourney.currentWeek+1}`;
+    }
+  }
+
+  document.getElementById("managerLeagueBody").innerHTML=table.map((t,i)=>{
+    const pd=t.pf-t.pa;
+    const cls=[
+      t.id==="user"?"user-club":"",
+      i===0?"champion-zone":"",
+      i>0&&i<4?"top-four":"",
+      i>=13?"bottom-three":""
+    ].filter(Boolean).join(" ");
+    return `<tr class="${cls}">
+      <td>${i+1}</td><td>${t.id==="user"?"★ ":""}${t.name}</td>
+      <td>${t.p}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+      <td>${t.pf}</td><td>${t.pa}</td><td>${pd>0?"+":""}${pd}</td>
+      <td title="Secondary for / against">${t.sf}-${t.sa}</td><td><b>${t.pts}</b></td>
+      <td>${formHtml(t.form)}</td>
+    </tr>`;
+  }).join("");
+
+  renderManagerResultsView();
+  renderManagerFixturesView();
+  renderManagerLatestMini();
+}
+
+function managerShowTab(tab){
+  const views={table:"managerTableView",results:"managerResultsView",fixtures:"managerFixturesView"};
+  Object.values(views).forEach(id=>document.getElementById(id).style.display="none");
+  document.getElementById(views[tab]).style.display="block";
+  ["Table","Results","Fixtures"].forEach(x=>{
+    const b=document.getElementById("managerTab"+x);
+    if(b)b.classList.toggle("active",x.toLowerCase()===tab);
+  });
+}
+
+function renderManagerResultsView(){
+  const el=document.getElementById("managerResultsView");
+  if(!el)return;
+  if(!managerJourney.latestResults.length){
+    el.innerHTML='<div class="notice">No gameweek results yet. Play your first fixture to begin the season.</div>';
+    return;
+  }
+  el.innerHTML=`<h3 style="margin:6px 0 8px">Gameweek ${managerJourney.completedWeeks} Results</h3>`+
+    managerJourney.latestResults.map(r=>{
+      const h=getManagerTeam(r.home),a=getManagerTeam(r.away);
+      return `<div class="week-result"><span>${h.name}</span><b>${r.homeScore} - ${r.awayScore}<small style="display:block;color:#8fa0bc;font-weight:500">Sec ${r.homeSecondary||0}-${r.awaySecondary||0}</small></b><span>${a.name}</span></div>`;
+    }).join("");
+}
+
+function renderManagerLatestMini(){
+  const el=document.getElementById("managerWeekResults");
+  if(!el)return;
+  if(!managerJourney.latestResults.length){el.style.display="none";return}
+  el.style.display="block";
+  el.innerHTML=`<div style="font-size:10px;color:#92a4c0;font-weight:800;margin:2px 0 4px">GAMEWEEK ${managerJourney.completedWeeks} RESULTS</div>`+
+    managerJourney.latestResults.map(r=>{
+      const h=getManagerTeam(r.home),a=getManagerTeam(r.away);
+      return `<div class="week-result"><span>${h.name}</span><b>${r.homeScore}-${r.awayScore}<small style="display:block;color:#8fa0bc;font-weight:500">S ${r.homeSecondary||0}-${r.awaySecondary||0}</small></b><span>${a.name}</span></div>`;
+    }).join("");
+}
+
+function renderManagerFixturesView(){
+  const el=document.getElementById("managerFixturesView");
+  if(!el)return;
+  if(!managerJourney.active){el.innerHTML="";return}
+  const rows=managerJourney.schedule.map((round,i)=>{
+    const f=round.find(x=>x.home==="user"||x.away==="user");
+    const h=getManagerTeam(f.home),a=getManagerTeam(f.away);
+    const result=(managerJourney.weekResults&&managerJourney.weekResults[i])||null;
+    const resultText=result?`<b>${result.homeScore}-${result.awayScore}</b>`:`<span style="color:#7889a2">—</span>`;
+    return `<div class="week-result"><span>GW ${i+1} · ${h.name}</span>${resultText}<span>${a.name}</span></div>`;
+  }).join("");
+  el.innerHTML=`<h3 style="margin:6px 0 8px">${managerJourney.clubName} — Season Fixtures</h3><div class="week-results" style="max-height:none">${rows}</div>`;
+}
+
+function simulateAiScore(teamA,teamB){
+  const diff=(teamA.rating-teamB.rating)/18;
+  const goalsA=Math.max(0,Math.round(1.2+diff*.35+Math.random()*2.1));
+  const goalsB=Math.max(0,Math.round(1.2-diff*.35+Math.random()*2.1));
+  const secondaryA=Math.max(0,Math.round(2.5+diff+Math.random()*5));
+  const secondaryB=Math.max(0,Math.round(2.5-diff+Math.random()*5));
+  return [goalsA,goalsB,secondaryA,secondaryB];
+}
+
+function applyLeagueResult(homeId,awayId,homeScore,awayScore,homeSecondary=0,awaySecondary=0){
+  const h=getManagerTeam(homeId),a=getManagerTeam(awayId);
+  h.p++;a.p++;
+  h.pf+=homeScore;h.pa+=awayScore;
+  a.pf+=awayScore;a.pa+=homeScore;
+  h.sf+=homeSecondary;h.sa+=awaySecondary;
+  a.sf+=awaySecondary;a.sa+=homeSecondary;
+
+  if(homeScore>awayScore){
+    h.w++;a.l++;h.pts+=3;
+    h.form.push("W");a.form.push("L");
+  }else if(homeScore<awayScore){
+    a.w++;h.l++;a.pts+=3;
+    h.form.push("L");a.form.push("W");
+  }else{
+    h.d++;a.d++;h.pts++;a.pts++;
+    h.form.push("D");a.form.push("D");
+  }
+  if(h.form.length>5)h.form.shift();
+  if(a.form.length>5)a.form.shift();
+}
+
+function playManagerFixture(){
+  if(!managerJourney.active||managerJourney.seasonComplete)return;
+  const f=getManagerUserFixture();
+  if(!f)return;
+
+  managerJourney.awaitingUserMatch=true;
+  managerJourney.currentFixture={...f,week:managerJourney.currentWeek};
+
+  const opponentId=f.home==="user"?f.away:f.home;
+  const opp=getManagerTeam(opponentId);
+
+  // Stronger clubs use Hard AI; weaker clubs use Beginner AI.
+  aiDifficulty=opp.rating>=72?"hard":"beginner";
+  gameMode="ai";
+
+  // Keep the user's selected formation workflow.
+  startFormationBuilder("ai",aiDifficulty);
+
+  const msg=document.getElementById("formationMessage");
+  if(msg)msg.textContent=`Manager Journey · Gameweek ${managerJourney.currentWeek+1} vs ${opp.name} · ${aiDifficulty.toUpperCase()} AI`;
+}
+
+function completeManagerWeekWithUserScore(userScore,oppScore,userSecondary=0,oppSecondary=0){
+  const week=managerJourney.currentWeek;
+  const fixture=managerJourney.currentFixture||getManagerUserFixture(week);
+  if(!fixture)return;
+
+  const results=[];
+  const round=managerJourney.schedule[week];
+
+  round.forEach(f=>{
+    if(f.home==="user"||f.away==="user"){
+      const homeScore=f.home==="user"?userScore:oppScore;
+      const awayScore=f.away==="user"?userScore:oppScore;
+      const homeSecondary=f.home==="user"?userSecondary:oppSecondary;
+      const awaySecondary=f.away==="user"?userSecondary:oppSecondary;
+      applyLeagueResult(f.home,f.away,homeScore,awayScore,homeSecondary,awaySecondary);
+      results.push({home:f.home,away:f.away,homeScore,awayScore,homeSecondary,awaySecondary});
+    }else{
+      const h=getManagerTeam(f.home),a=getManagerTeam(f.away);
+      const [hs,as,hsec,asec]=simulateAiScore(h,a);
+      applyLeagueResult(f.home,f.away,hs,as,hsec,asec);
+      results.push({home:f.home,away:f.away,homeScore:hs,awayScore:as,homeSecondary:hsec,awaySecondary:asec});
+    }
+  });
+
+  if(!managerJourney.weekResults)managerJourney.weekResults={};
+  const userResult=results.find(r=>r.home==="user"||r.away==="user");
+  managerJourney.weekResults[week]=userResult;
+  managerJourney.latestResults=results;
+  managerJourney.completedWeeks=week+1;
+  managerJourney.currentWeek=week+1;
+  managerJourney.awaitingUserMatch=false;
+  managerJourney.currentFixture=null;
+
+  if(managerJourney.currentWeek>=managerJourney.schedule.length){
+    managerJourney.currentWeek=managerJourney.schedule.length-1;
+    managerJourney.seasonComplete=true;
+  }
+
+  saveManagerJourney();
+  refreshThemeUnlocks();
+}
+
+function continueManagerJourney(){
+  showScreen("screen-manager");
+  renderManagerJourney();
+  managerShowTab("table");
+}
+
+
+const SQUAD_POOL=[
+  {role:"defence",movement:"diamond"},{role:"defence",movement:"diamond"},
+  {role:"defence",movement:"plus"},{role:"defence",movement:"plus"},
+  {role:"midfield",movement:"diamond"},{role:"midfield",movement:"diamond"},
+  {role:"midfield",movement:"plus"},{role:"midfield",movement:"plus"},
+  {role:"attack",movement:"diamond"},{role:"attack",movement:"diamond"},
+  {role:"attack",movement:"plus"},{role:"attack",movement:"plus"}
+];
+
+const DEFAULT_SQUAD_INDICES=[0,1,2,4,6,7,8,9,10,11];
+
+function showScreen(id){document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));document.getElementById(id).classList.add("active");updateProfileUI()}
+function openPlayMenu(){showScreen("screen-playmenu")}
+function showRuleTab(i,btn){document.querySelectorAll(".rules-section").forEach((s,idx)=>s.classList.toggle("active",idx===i));document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));btn.classList.add("active")}
+function opponentOf(team){return team==="cyan"?"orange":"cyan"}
+function targetGoalFor(team){return team==="cyan"?goals.bottom:goals.top}
+function ownGoalFor(team){return team==="cyan"?goals.top:goals.bottom}
+function goalGuardSquare(team){
+  const g=ownGoalFor(team);
+  return {row:team==="orange"?g.row-1:g.row+1,col:g.col};
+}
+function getAIGoalBlocker(){
+  return pieces.find(p=>p.id===aiGoalBlockerPieceId)||null;
+}
+function isAIGoalBlocker(piece){
+  return gameMode==="ai"&&aiDifficulty==="hard"&&piece&&piece.team===AI_TEAM&&piece.id===aiGoalBlockerPieceId;
+}
+function isAttackingHalf(team,row){return team==="cyan"?row>=6:row<=5}
+function isDefensiveHalf(team,row){return !isAttackingHalf(team,row)}
+function getHalfFromRow(row){return row<=5?"top":"bottom"}
+function getHalf(piece){return getHalfFromRow(piece.row)}
+function isTargetGoalCell(team,row,col){const g=targetGoalFor(team);return row===g.row&&col===g.col}
+function isOwnGoalCell(team,row,col){const g=ownGoalFor(team);return row===g.row&&col===g.col}
+function isAnyGoalCell(row,col){return (row===0&&col===4)||(row===11&&col===4)}
+
+function defaultFormation(team){
+  if(team==="cyan")return[
+    {row:1,col:2},{row:1,col:4},{row:1,col:6},
+    {row:3,col:1},{row:3,col:4},{row:3,col:7},
+    {row:5,col:0},{row:5,col:3},{row:5,col:5},{row:5,col:8}
+  ];
+  return[
+    {row:10,col:2},{row:10,col:4},{row:10,col:6},
+    {row:8,col:1},{row:8,col:4},{row:8,col:7},
+    {row:6,col:0},{row:6,col:3},{row:6,col:5},{row:6,col:8}
+  ];
+}
+
+function defaultSelectedSquad(team){
+  const positions=defaultFormation(team);
+  return DEFAULT_SQUAD_INDICES.map((poolIndex,i)=>({
+    ...SQUAD_POOL[poolIndex],
+    row:positions[i].row,
+    col:positions[i].col
+  }));
+}
+
+function shuffledCopy(items){
+  const arr=items.map(x=>({...x}));
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+const STRUCTURED_FORMATIONS={
+  "4-3-3":{
+    defence:[{row:10,col:1},{row:10,col:3},{row:10,col:5},{row:10,col:7}],
+    midfield:[{row:8,col:2},{row:8,col:4},{row:8,col:6}],
+    attack:[{row:6,col:1},{row:6,col:4},{row:6,col:7}]
+  },
+  "4-4-2":{
+    defence:[{row:10,col:1},{row:10,col:3},{row:10,col:5},{row:10,col:7}],
+    midfield:[{row:8,col:1},{row:8,col:3},{row:8,col:5},{row:8,col:7}],
+    attack:[{row:6,col:3},{row:6,col:5}]
+  },
+  "3-3-4":{
+    defence:[{row:10,col:2},{row:10,col:4},{row:10,col:6}],
+    midfield:[{row:8,col:2},{row:8,col:4},{row:8,col:6}],
+    attack:[{row:6,col:1},{row:6,col:3},{row:6,col:5},{row:6,col:7}]
+  }
+};
+
+function mirrorFormationSquare(team,square){
+  if(team==="orange")return {...square};
+  return {row:11-square.row,col:square.col};
+}
+
+function choosePiecesForRole(role,count){
+  const candidates=shuffledCopy(SQUAD_POOL.filter(p=>p.role===role));
+  return candidates.slice(0,count).map(p=>({...p}));
+}
+
+function generateStructuredSquadFormation(team,formationName=null){
+  const names=Object.keys(STRUCTURED_FORMATIONS);
+  const name=formationName||names[Math.floor(Math.random()*names.length)];
+  const shape=STRUCTURED_FORMATIONS[name];
+  const selected=[
+    ...choosePiecesForRole("defence",shape.defence.length),
+    ...choosePiecesForRole("midfield",shape.midfield.length),
+    ...choosePiecesForRole("attack",shape.attack.length)
+  ];
+  const byRole={
+    defence:selected.filter(p=>p.role==="defence"),
+    midfield:selected.filter(p=>p.role==="midfield"),
+    attack:selected.filter(p=>p.role==="attack")
+  };
+  ["defence","midfield","attack"].forEach(role=>{
+    shape[role].forEach((sq,i)=>{
+      const target=mirrorFormationSquare(team,sq);
+      byRole[role][i].row=target.row;
+      byRole[role][i].col=target.col;
+    });
+  });
+
+  // Advanced AI formation rule:
+  // one Defence ♦ remains directly in front of the AI scoring block as a permanent guard.
+  if(team===AI_TEAM&&aiDifficulty==="hard"){
+    const guard=goalGuardSquare(team);
+    const diamondDefender=byRole.defence.find(p=>p.movement==="diamond");
+    if(diamondDefender){
+      const displaced=selected.find(p=>p!==diamondDefender&&p.row===guard.row&&p.col===guard.col);
+      if(displaced){
+        const oldRow=diamondDefender.row,oldCol=diamondDefender.col;
+        displaced.row=oldRow;
+        displaced.col=oldCol;
+      }
+      diamondDefender.row=guard.row;
+      diamondDefender.col=guard.col;
+      diamondDefender.goalBlocker=true;
+    }
+  }
+
+  return selected;
+}
+
+function generateRandomSquadFormation(team){
+  return generateStructuredSquadFormation(team);
+}
+
+function addPiece(team,role,movement,row,col,possession=false,goalBlocker=false){
+  pieces.push({id:nextPieceId++,team,role,movement,row,col,possession,goalBlocker,enteredAttackHalf:isAttackingHalf(team,row),movedThisTurn:false,movedWithPossessionThisTurn:false});
+}
+function setupPiecesFromFormations(){
+  pieces=[];nextPieceId=1;aiGoalBlockerPieceId=null;
+  const cyan=savedPlayerFormation.length===10?savedPlayerFormation:defaultSelectedSquad("cyan");
+  const orange=savedOrangeFormation.length===10?savedOrangeFormation:generateRandomSquadFormation("orange");
+
+  // Re-enforce the AI guard even when a previously saved Orange formation is reused.
+  if(gameMode==="ai"&&aiDifficulty==="hard"){
+    const guard=goalGuardSquare(AI_TEAM);
+    let blocker=orange.find(p=>p.role==="defence"&&p.movement==="diamond"&&p.goalBlocker);
+    if(!blocker)blocker=orange.find(p=>p.role==="defence"&&p.movement==="diamond");
+    if(blocker){
+      const displaced=orange.find(p=>p!==blocker&&p.row===guard.row&&p.col===guard.col);
+      if(displaced){
+        const oldRow=blocker.row,oldCol=blocker.col;
+        displaced.row=oldRow;
+        displaced.col=oldCol;
+      }
+      blocker.row=guard.row;
+      blocker.col=guard.col;
+      blocker.goalBlocker=true;
+    }
+  }
+
+  cyan.forEach(p=>addPiece("cyan",p.role,p.movement,p.row,p.col,false,!!p.goalBlocker));
+  orange.forEach(p=>addPiece("orange",p.role,p.movement,p.row,p.col,false,!!p.goalBlocker));
+
+  if(gameMode==="ai"&&aiDifficulty==="hard"){
+    const guard=goalGuardSquare(AI_TEAM);
+    const blocker=pieces.find(p=>p.team===AI_TEAM&&p.role==="defence"&&p.movement==="diamond"&&p.row===guard.row&&p.col===guard.col);
+    if(blocker)aiGoalBlockerPieceId=blocker.id;
+  }
+}
+function getPiece(row,col){return pieces.find(p=>p.row===row&&p.col===col)}
+function getPossessionPiece(){return pieces.find(p=>p.possession)}
+function chebyshevDistance(r1,c1,r2,c2){return Math.max(Math.abs(r1-r2),Math.abs(c1-c2))}
+function distanceToGoal(team,row,col){const g=targetGoalFor(team);return chebyshevDistance(row,col,g.row,g.col)}
+
+function buildMatchBoard(){
+  const board=document.getElementById("board");board.innerHTML="";cells=[];
+  for(let r=0;r<ROWS;r++){cells[r]=[];for(let c=0;c<COLS;c++){
+    const cell=document.createElement("div");cell.className="cell";if(r===5)cell.classList.add("middle-line");
+    if(isAnyGoalCell(r,c)){cell.classList.add("scoring-zone");const g=document.createElement("div");g.className="goal-symbol";cell.appendChild(g)}
+    cell.addEventListener("click",()=>handleCellClick(r,c));board.appendChild(cell);cells[r][c]=cell;
+  }}
+}
+function render(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){cells[r][c].classList.remove("legal","pass-target","take-target");cells[r][c].querySelectorAll(".piece").forEach(e=>e.remove())}
+  pieces.forEach(piece=>{
+    const el=document.createElement("div");el.classList.add("piece",piece.team,piece.role);
+    if(selectedPiece&&selectedPiece.id===piece.id)el.classList.add("selected");if(piece.possession)el.classList.add("possession");
+    const s=document.createElement("span");s.className="symbol";s.textContent=piece.movement==="plus"?"+":"♦";el.appendChild(s);cells[piece.row][piece.col].appendChild(el);
+  });
+  if(currentTeam==="cyan"||gameMode==="local"){
+    if(selectedPiece)highlightLegalMoves(selectedPiece);
+    highlightPassTargets();highlightTakeTargets();
+  }
+  updateInterface();
+  clearManagerJourneyHints();
+}
+
+function movementDirectionLegal(piece,tr,tc){
+  const dr=tr-piece.row,dc=tc-piece.col,ar=Math.abs(dr),ac=Math.abs(dc);if(!dr&&!dc)return false;
+  return piece.movement==="plus"?(dr===0||dc===0):(dr===0||dc===0||ar===ac);
+}
+function passesRoleRestrictions(piece,tr){
+  if(piece.role==="defence"&&!isDefensiveHalf(piece.team,tr))return false;
+  if(piece.role==="attack"&&piece.enteredAttackHalf&&!isAttackingHalf(piece.team,tr))return false;
+  return true;
+}
+function isMovementPathClear(piece,tr,tc){
+  const dr=tr-piece.row,dc=tc-piece.col,rs=Math.sign(dr),cs=Math.sign(dc);let r=piece.row+rs,c=piece.col+cs;
+  while(r!==tr||c!==tc){const blocker=getPiece(r,c);if(blocker){if(piece.role==="attack"){if(blocker.role==="defence")return false}else return false}r+=rs;c+=cs}return true;
+}
+function passesGoalRestrictions(piece,tr,tc){
+  if(isOwnGoalCell(piece.team,tr,tc))return false;
+  if(isTargetGoalCell(piece.team,tr,tc)){if(!piece.possession)return false;if(piece.movedWithPossessionThisTurn)return false}
+  return true;
+}
+function isLegalMove(piece,tr,tc){
+  if(gameOver||paused||halftimeActive||roundResetPending||actionsRemaining<=0||piece.team!==currentTeam)return false;
+  if(tr<0||tr>=ROWS||tc<0||tc>=COLS||getPiece(tr,tc))return false;
+  return movementDirectionLegal(piece,tr,tc)&&passesRoleRestrictions(piece,tr)&&passesGoalRestrictions(piece,tr,tc)&&isMovementPathClear(piece,tr,tc);
+}
+function getLegalMoves(piece){const out=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(isLegalMove(piece,r,c))out.push({row:r,col:c});return out}
+function canReachTargetGoalIfPossession(piece){
+  const g=targetGoalFor(piece.team);if(getPiece(g.row,g.col))return false;
+  return movementDirectionLegal(piece,g.row,g.col)&&passesRoleRestrictions(piece,g.row)&&isMovementPathClear(piece,g.row,g.col);
+}
+
+function showBoardArrow(fr,fc,tr,tc,type,label){
+  const layer=document.getElementById("arrowLayer");layer.innerHTML="";
+  const a=cells[fr][fc].getBoundingClientRect(),b=cells[tr][tc].getBoundingClientRect(),br=document.getElementById("board").getBoundingClientRect();
+  const x1=a.left-br.left+a.width/2,y1=a.top-br.top+a.height/2,x2=b.left-br.left+b.width/2,y2=b.top-br.top+b.height/2;
+  const dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux;
+  const sx=x1+ux*12,sy=y1+uy*12,ex=x2-ux*15,ey=y2-uy*15,h=11;
+  const h1x=ex-ux*h+px*h*.7,h1y=ey-uy*h+py*h*.7,h2x=ex-ux*h-px*h*.7,h2y=ey-uy*h-py*h*.7,mx=(sx+ex)/2,my=(sy+ey)/2-6;
+  layer.innerHTML=`<svg viewBox="0 0 ${br.width} ${br.height}">
+    <line class="ai-arrow ${type}" x1="${sx}" y1="${sy}" x2="${ex}" y2="${ey}"></line>
+    <polygon class="ai-head ${type}" points="${ex},${ey} ${h1x},${h1y} ${h2x},${h2y}"></polygon>
+    <text class="ai-label" x="${mx}" y="${my}" text-anchor="middle" fill="${type==="pass"?"#ffd54d":type==="take"?"#ff5f6d":"#ff9a4a"}">${label}</text>
+  </svg>`;
+  clearTimeout(showBoardArrow.timer);showBoardArrow.timer=setTimeout(()=>layer.innerHTML="",1200);
+}
+
+function executeMove(piece,row,col,{byAI=false}={}){
+  const fr=piece.row,fc=piece.col,had=piece.possession,scoreMove=had&&isTargetGoalCell(piece.team,row,col);
+  piece.row=row;piece.col=col;piece.movedThisTurn=true;if(had)piece.movedWithPossessionThisTurn=true;
+  if(byAI)recordAIPhysicalMove(piece,fr,fc,row,col);
+  if(piece.role==="attack"&&isAttackingHalf(piece.team,row))piece.enteredAttackHalf=true;
+  useAction();selectedPiece=null;clearPendingActions();render();
+  if(byAI)showBoardArrow(fr,fc,row,col,"move","MOVE");
+  if(scoreMove){scoreGoal(piece.team);return}
+  checkAutomaticTurnEnd();
+}
+function isLegalPass(from,to){
+  if(!from||!to||from.team!==to.team||from.id===to.id)return false;
+  const dr=to.row-from.row,dc=to.col-from.col,ar=Math.abs(dr),ac=Math.abs(dc);if(!(dr===0||dc===0||ar===ac))return false;
+  const rs=Math.sign(dr),cs=Math.sign(dc);let r=from.row+rs,c=from.col+cs;
+  while(r!==to.row||c!==to.col){const blocker=getPiece(r,c);if(blocker&&blocker.team!==from.team)return false;r+=rs;c+=cs}return true;
+}
+function performPass(from,to,{byAI=false}={}){
+  if(!isLegalPass(from,to))return false;
+  const fr=from.row,fc=from.col,tr=to.row,tc=to.col;from.possession=false;to.possession=true;useAction();
+  let point=false;
+  if(isAttackingHalf(from.team,from.row)&&isAttackingHalf(to.team,to.row)){
+    secondaryScores[to.team]+=1;point=true;
+    if(to.team==="cyan")matchStats.cyanPasses++;else matchStats.orangePasses++;
+  }
+  selectedPiece=null;clearPendingActions();render();
+  if(byAI)showBoardArrow(fr,fc,tr,tc,"pass","PASS");
+  showMessage(point?`${to.team==="cyan"?"Cyan":"Orange"} pass: +1 secondary`:"Possession passed.",byAI?"ai":point?"success":"");
+  return true;
+}
+function canTakeAdjacent(piece,pos){
+  const rd=Math.abs(piece.row-pos.row),cd=Math.abs(piece.col-pos.col);if(!(rd<=1&&cd<=1&&!(rd===0&&cd===0)))return false;
+  return movementDirectionLegal(piece,pos.row,pos.col)&&passesRoleRestrictions(piece,pos.row);
+}
+function canPlusTakePossession(piece,pos){
+  if(piece.movement!=="plus")return false;
+  return (piece.row===pos.row||piece.col===pos.col)&&getHalf(piece)===getHalf(pos);
+}
+function canTakePossession(piece){
+  if(!piece||piece.team!==currentTeam||piece.movedThisTurn)return false;
+  const pos=getPossessionPiece();if(!pos||pos.team===piece.team)return false;return canTakeAdjacent(piece,pos)||canPlusTakePossession(piece,pos);
+}
+function performTakePossession(piece,{byAI=false}={}){
+  if(!canTakePossession(piece))return false;
+  const old=getPossessionPiece(),fr=old.row,fc=old.col,tr=piece.row,tc=piece.col;old.possession=false;piece.possession=true;
+  secondaryScores[piece.team]+=1;
+  if(piece.team==="cyan")matchStats.cyanTakes++;else matchStats.orangeTakes++;
+  useAction();selectedPiece=null;clearPendingActions();render();if(byAI)showBoardArrow(fr,fc,tr,tc,"take","TAKE");
+  showMessage(`${piece.team==="cyan"?"Cyan":"Orange"} wins possession: +1 secondary`,
+    piece.team==="orange"&&gameMode==="ai"?"ai":"success");return true;
+}
+function handleCellClick(row,col){
+  if(!gameStarted||paused||gameOver||halftimeActive||roundResetPending)return;
+  if(gameMode==="ai"&&currentTeam===AI_TEAM){showMessage("Opponent is playing...","ai");return}
+  clearPendingActions();const clicked=getPiece(row,col);
+  if(clicked){
+    if(clicked.team!==currentTeam)return;
+    const pos=getPossessionPiece();
+    if(pos&&pos.team===currentTeam&&clicked.id!==pos.id&&isLegalPass(pos,clicked)){pendingPassReceiver=clicked;selectedPiece=clicked;showPassButton();render();return}
+    if(canTakePossession(clicked)){pendingTakePiece=clicked;selectedPiece=clicked;showTakeButton();render();return}
+    selectedPiece=clicked;render();return;
+  }
+  if(selectedPiece&&isLegalMove(selectedPiece,row,col))executeMove(selectedPiece,row,col,{byAI:false});
+}
+function confirmPassPossession(){const p=getPossessionPiece();if(p&&pendingPassReceiver&&performPass(p,pendingPassReceiver,{byAI:false}))checkAutomaticTurnEnd()}
+function confirmTakePossession(){if(pendingTakePiece&&performTakePossession(pendingTakePiece,{byAI:false}))checkAutomaticTurnEnd()}
+function highlightLegalMoves(piece){getLegalMoves(piece).forEach(m=>cells[m.row][m.col].classList.add("legal"))}
+function highlightPassTargets(){const p=getPossessionPiece();if(!p||p.team!==currentTeam)return;pieces.forEach(x=>{if(x.team===currentTeam&&x.id!==p.id&&isLegalPass(p,x))cells[x.row][x.col].classList.add("pass-target")})}
+function highlightTakeTargets(){const p=getPossessionPiece();if(!p||p.team===currentTeam)return;pieces.forEach(x=>{if(x.team===currentTeam&&canTakePossession(x))cells[x.row][x.col].classList.add("take-target")})}
+
+function useAction(){actionsRemaining=Math.max(0,actionsRemaining-1)}
+function resetTurnFlags(){pieces.forEach(p=>{p.movedThisTurn=false;p.movedWithPossessionThisTurn=false})}
+function startNewTurn(){
+  if(!gameStarted||halftimeActive||gameOver)return;turnSerial++;actionsRemaining=ACTIONS_PER_TURN;turnTimeRemaining=TURN_DURATION;selectedPiece=null;clearPendingActions();resetTurnFlags();aiSupportMovesUsed=0;aiPostTakeActive=false;aiPlannedPassTargetId=null;resetAITurnMemory();
+  const p=getPossessionPiece();aiMode=currentTeam===AI_TEAM?(p&&p.team===AI_TEAM?"ATTACK":"DEFENSE"):null;render();
+  showMessage(gameMode==="local"?`${currentTeam.toUpperCase()} TURN`:currentTeam===HUMAN_TEAM?"YOUR TURN":`Opponent: ${aiMode} MODE`,currentTeam===AI_TEAM&&gameMode==="ai"?"ai":"");
+  if(gameMode==="ai"&&currentTeam===AI_TEAM){const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&!paused&&!gameOver)performNextAIAction(serial)},550)}
+}
+
+function playerEndTurn(){
+  if(!gameStarted||gameOver||paused||halftimeActive||roundResetPending)return;
+
+  // In AI mode, only the human player should be able to manually end a turn.
+  if(gameMode==="ai"&&currentTeam===AI_TEAM)return;
+
+  clearPendingActions();
+  selectedPiece=null;
+  endTurn();
+}
+
+function exitCurrentMatch(){
+  document.body.classList.remove("manager-journey-match");
+  if(gameInterval){clearInterval(gameInterval);gameInterval=null}
+  turnSerial++;
+  gameStarted=false;paused=false;gameOver=false;halftimeActive=false;roundResetPending=false;
+  aiPostTakeActive=false;aiPlannedPassTargetId=null;selectedPiece=null;clearPendingActions();
+  const halfOverlay=document.getElementById("halfTimeOverlay");
+  if(halfOverlay)halfOverlay.classList.remove("show");
+
+  // Abandoning a Manager Journey fixture does not simulate the week.
+  if(managerJourney&&managerJourney.awaitingUserMatch){
+    managerJourney.awaitingUserMatch=false;
+    managerJourney.currentFixture=null;
+    saveManagerJourney();
+    showScreen("screen-manager");
+    renderManagerJourney();
+    return;
+  }
+  showScreen("screen-menu");
+}
+
+function endTurn(){if(!gameStarted||gameOver||halftimeActive||roundResetPending)return;currentTeam=opponentOf(currentTeam);startNewTurn()}
+function checkAutomaticTurnEnd(){if(actionsRemaining<=0){const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&actionsRemaining<=0&&!gameOver&&!halftimeActive)endTurn()},250)}}
+
+function scoreGoal(team){
+  scores[team]+=1;if(team==="cyan"){matchStats.cyanGoals++;profile.goals++}else matchStats.orangeGoals++;
+  roundResetPending=true;showMessage(`${team==="cyan"?"Cyan":"Orange"} GOAL! +1 goal`,team==="orange"&&gameMode==="ai"?"ai":"success");render();
+  const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&!gameOver&&!halftimeActive)resetAfterGoal(team)},850);
+}
+function resetAfterGoal(scoringTeam){
+  roundResetPending=false;setupPiecesFromFormations();pieces.forEach(p=>p.possession=false);
+  const team=opponentOf(scoringTeam),starter=pieces.find(p=>p.team===team&&p.role==="midfield")||pieces.find(p=>p.team===team);starter.possession=true;currentTeam=team;startNewTurn();
+}
+
+
+function resetAITurnMemory(){
+  aiPieceMoveCounts={};
+  aiVisitedSquares={};
+  pieces.filter(p=>p.team===AI_TEAM).forEach(p=>{
+    aiPieceMoveCounts[p.id]=0;
+    aiVisitedSquares[p.id]=new Set([`${p.row},${p.col}`]);
+  });
+}
+function aiPhysicalMoveCount(piece){
+  return aiPieceMoveCounts[piece.id]||0;
+}
+function aiHasVisited(piece,row,col){
+  return !!(aiVisitedSquares[piece.id]&&aiVisitedSquares[piece.id].has(`${row},${col}`));
+}
+function recordAIPhysicalMove(piece,fromRow,fromCol,toRow,toCol){
+  if(!aiVisitedSquares[piece.id])aiVisitedSquares[piece.id]=new Set();
+  aiVisitedSquares[piece.id].add(`${fromRow},${fromCol}`);
+  aiVisitedSquares[piece.id].add(`${toRow},${toCol}`);
+  aiPieceMoveCounts[piece.id]=(aiPieceMoveCounts[piece.id]||0)+1;
+}
+function aiMoveAllowedThisTurn(piece,row,col){
+  // Permanent goalkeeper-style block: the selected Defence ♦ never leaves
+  // the square directly in front of the AI scoring block.
+  if(isAIGoalBlocker(piece))return false;
+
+  // Never physically move the same piece three times in one turn.
+  if(aiPhysicalMoveCount(piece)>=2)return false;
+  // Do not move a piece back onto a square it already occupied this turn.
+  if(aiHasVisited(piece,row,col))return false;
+  return true;
+}
+function aiMoveVarietyScore(piece){
+  const count=aiPhysicalMoveCount(piece);
+  if(count===0)return 34;     // strongly prefer an unused piece
+  if(count===1)return -22;    // a second move is possible but discouraged
+  return -9999;
+}
+
+
+const AI_ADVANCED_TACTIC_CHANCE=0.36;
+
+function aiUseAdvancedTactics(){
+  return Math.random()<AI_ADVANCED_TACTIC_CHANCE;
+}
+
+function getLegalTakersAgainstSquare(attackingTeam,row,col){
+  const enemy=attackingTeam==="cyan"?"orange":"cyan";
+  const originalHolder={team:attackingTeam,row,col};
+
+  return pieces.filter(p=>p.team===enemy).filter(p=>{
+    // Adjacent legal take threat: piece must be able to legally move onto holder square
+    // if that square were empty.
+    const adjacent=chebyshevDistance(p.row,p.col,row,col)===1;
+    if(adjacent){
+      const saved=getPiece(row,col);
+      // Basic geometric/role legality approximation matching Take rules.
+      if(canPieceGeometryReach(p,row,col) && isRoleDestinationLegal(p,row,col)){
+        return true;
+      }
+    }
+
+    // Long-range + take threat in same row/column and same half.
+    if(
+      p.movement==="plus" &&
+      getHalfFromRow(p.row)===getHalfFromRow(row) &&
+      (p.row===row || p.col===col)
+    ){
+      return true;
+    }
+
+    return false;
+  });
+}
+
+function aiTakeThreatCount(team,row,col){
+  return getLegalTakersAgainstSquare(team,row,col).length;
+}
+
+function aiSquareSafetyScore(team,row,col){
+  const threats=aiTakeThreatCount(team,row,col);
+  const nearest=nearestOpponentDistance(team,row,col);
+  let score=nearest*7-threats*32;
+
+  // Extra penalty for immediate adjacent exposure.
+  if(nearest<=1)score-=28;
+
+  // Reward positions with a bit of breathing room.
+  if(nearest>=3)score+=12;
+
+  return score;
+}
+
+function aiReceiverSafetyScore(piece){
+  return aiSquareSafetyScore(piece.team,piece.row,piece.col);
+}
+
+function aiSupportQuality(piece,row,col){
+  let score=0;
+
+  // Prefer occupying useful advanced lanes, while staying reasonably safe.
+  if(isAttackingHalf(piece.team,row))score+=18;
+  score-=Math.abs(col-4)*2;
+
+  // Passing connectivity is valuable.
+  score+=withVirtualPosition(piece,row,col,()=>countPassingConnections(piece)*7);
+
+  // Security matters before changing possession.
+  score+=aiSquareSafetyScore(piece.team,row,col);
+
+  return score;
+}
+
+function choosePrePassSupportMove(){
+  const holder=getPossessionPiece();
+  if(!holder || holder.team!==AI_TEAM)return null;
+
+  let best=null,bestScore=-Infinity;
+
+  pieces.filter(p=>p.team===AI_TEAM && !p.possession).forEach(piece=>{
+    getLegalMoves(piece).forEach(m=>{
+      if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+
+      let s=
+        aiSupportQuality(piece,m.row,m.col) +
+        aiMoveVarietyScore(piece);
+
+      // Prefer midfield and attack support before a future pass.
+      if(piece.role==="midfield")s+=18;
+      if(piece.role==="attack")s+=24;
+
+      // Reward pieces that create useful receiving options from the current holder.
+      s+=withVirtualPosition(piece,m.row,m.col,()=>{
+        if(isLegalPass(holder,piece))return 34;
+        return 0;
+      });
+
+      // Slight randomness to avoid robotic repetition.
+      s+=Math.random()*5;
+
+      if(s>bestScore){
+        bestScore=s;
+        best={
+          type:"move",
+          piece,
+          row:m.row,
+          col:m.col,
+          message:"Opponent improves support before changing possession."
+        };
+      }
+    });
+  });
+
+  return bestScore>15?best:null;
+}
+
+function scoreAIPassOption(from,to){
+  let s=0;
+
+  const goalDistance=distanceToGoal(AI_TEAM,to.row,to.col);
+  const safety=aiReceiverSafetyScore(to);
+  const threats=aiTakeThreatCount(AI_TEAM,to.row,to.col);
+
+  s+=safety;
+  s-=goalDistance*4;
+
+  // Passing into the opposition half is especially useful.
+  if(isAttackingHalf(AI_TEAM,to.row))s+=28;
+
+  // New DMA scoring: +1 only if both passer and receiver are in opposition half.
+  // Give this a strong tactical value so the AI recognises the scoring opportunity.
+  if(isAttackingHalf(AI_TEAM,from.row) && isAttackingHalf(AI_TEAM,to.row))s+=60;
+
+  // Strongly discourage passing into an obvious Take Possession trap.
+  if(threats>0)s-=threats*38;
+
+  // Reward receivers that have useful onward passing options.
+  s+=countPassingConnections(to)*5;
+
+  return s;
+}
+
+
+function canPieceGeometryReach(piece,tr,tc){
+  const dr=tr-piece.row,dc=tc-piece.col;
+  if(dr===0&&dc===0)return false;
+  if(piece.movement==="plus")return dr===0||dc===0;
+  if(piece.movement==="diamond")return dr===0||dc===0||Math.abs(dr)===Math.abs(dc);
+  return false;
+}
+
+function isRoleDestinationLegal(piece,tr,tc){
+  if(piece.role==="defence" && !isDefensiveHalf(piece.team,tr))return false;
+  if(piece.role==="attack" && piece.enteredAttackHalf && !isAttackingHalf(piece.team,tr))return false;
+  if(isOwnGoalCell(piece.team,tr,tc))return false;
+  return true;
+}
+
+/* AI */
+function rolePriorityValue(role){return role==="attack"?30:role==="midfield"?20:10}
+function nearestOpponentDistance(team,row,col){const opp=pieces.filter(p=>p.team!==team);return opp.length?Math.min(...opp.map(o=>chebyshevDistance(row,col,o.row,o.col))):99}
+function isOpenSpace(team,row,col){return nearestOpponentDistance(team,row,col)>1}
+function withVirtualPosition(piece,row,col,cb){const r=piece.row,c=piece.col;piece.row=row;piece.col=col;const v=cb();piece.row=r;piece.col=c;return v}
+function countPassingConnections(piece){return pieces.filter(t=>t.team===piece.team&&t.id!==piece.id&&isLegalPass(piece,t)).length}
+function chooseAttackSupport(){
+  let best=null,bestScore=-Infinity;
+  pieces.filter(p=>p.team===AI_TEAM&&!p.possession).forEach(piece=>getLegalMoves(piece).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+    let s=rolePriorityValue(piece.role)+aiMoveVarietyScore(piece)+(piece.movedThisTurn?-15:0)+Math.min(nearestOpponentDistance(AI_TEAM,m.row,m.col),4)*7-distanceToGoal(AI_TEAM,m.row,m.col)*3;
+    if(piece.role==="attack"&&isAttackingHalf(AI_TEAM,m.row))s+=50;if(piece.role==="midfield"&&isAttackingHalf(AI_TEAM,m.row))s+=30;
+    s+=withVirtualPosition(piece,m.row,m.col,()=>countPassingConnections(piece)*8)+Math.random()*4;
+    if(s>bestScore){bestScore=s;best={type:"move",piece,row:m.row,col:m.col,message:"Opponent improves shape."}}
+  }));return best;
+}
+
+function postTakePassScore(holder,target){
+  const threats=aiTakeThreatCount(AI_TEAM,target.row,target.col);
+  const safety=aiSquareSafetyScore(AI_TEAM,target.row,target.col);
+  const holderThreats=aiTakeThreatCount(AI_TEAM,holder.row,holder.col);
+
+  let s=safety-threats*48;
+
+  // After winning possession, security matters more than forward distance.
+  if(threats===0)s+=38;
+  if(nearestOpponentDistance(AI_TEAM,target.row,target.col)>=2)s+=20;
+
+  // Passing backwards or sideways is perfectly acceptable if it protects possession.
+  const holderGoalDistance=distanceToGoal(AI_TEAM,holder.row,holder.col);
+  const targetGoalDistance=distanceToGoal(AI_TEAM,target.row,target.col);
+  if(targetGoalDistance>holderGoalDistance && threats===0)s+=16;
+
+  // Still reward useful attacking territory, but less than safety.
+  if(isAttackingHalf(AI_TEAM,target.row))s+=12;
+
+  // Escaping an immediately threatened holder is very valuable.
+  if(holderThreats>0 && threats===0)s+=38;
+
+  return s;
+}
+
+function choosePostTakeSecureAction(){
+  const holder=getPossessionPiece();
+  if(!holder || holder.team!==AI_TEAM){
+    aiPostTakeActive=false;
+    aiPlannedPassTargetId=null;
+    return null;
+  }
+
+  // A previously planned receiver has moved into a passing lane:
+  // complete the pass before doing anything else.
+  if(aiPlannedPassTargetId!==null){
+    const target=pieces.find(p=>p.id===aiPlannedPassTargetId);
+    if(target && target.team===AI_TEAM && !target.possession && isLegalPass(holder,target)){
+      const threats=aiTakeThreatCount(AI_TEAM,target.row,target.col);
+      if(threats===0 || actionsRemaining<=1){
+        return {
+          type:"pass",
+          from:holder,
+          to:target,
+          postTakePass:true,
+          message:"Opponent secures the newly won possession with a prepared pass."
+        };
+      }
+    }
+    aiPlannedPassTargetId=null;
+  }
+
+  // 1. First look for an already available secure pass.
+  // Backward and sideways passes are deliberately allowed and can be preferred.
+  const directTargets=pieces.filter(p=>
+    p.team===AI_TEAM &&
+    p.id!==holder.id &&
+    !isAIGoalBlocker(p) &&
+    isLegalPass(holder,p)
+  );
+
+  if(directTargets.length){
+    let best=null,bestScore=-Infinity;
+    directTargets.forEach(target=>{
+      const s=postTakePassScore(holder,target)+Math.random()*3;
+      if(s>bestScore){
+        bestScore=s;
+        best=target;
+      }
+    });
+
+    if(best && (bestScore>20 || aiTakeThreatCount(AI_TEAM,holder.row,holder.col)>0)){
+      return {
+        type:"pass",
+        from:holder,
+        to:best,
+        postTakePass:true,
+        message:"Opponent passes away from pressure after winning possession."
+      };
+    }
+  }
+
+  // 2. If two actions remain, move a FREE teammate into the holder's passing path,
+  // then the next AI action will make that pass.
+  if(actionsRemaining>=2){
+    let bestSupport=null,bestSupportScore=-Infinity;
+
+    pieces.filter(p=>
+      p.team===AI_TEAM &&
+      !p.possession &&
+      !isAIGoalBlocker(p)
+    ).forEach(piece=>{
+      getLegalMoves(piece).forEach(m=>{
+        if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+
+        const canReceive=withVirtualPosition(piece,m.row,m.col,()=>isLegalPass(holder,piece));
+        if(!canReceive)return;
+
+        const threats=aiTakeThreatCount(AI_TEAM,m.row,m.col);
+        const safety=aiSquareSafetyScore(AI_TEAM,m.row,m.col);
+        let s=safety-threats*45+aiMoveVarietyScore(piece);
+
+        if(threats===0)s+=35;
+        if(piece.role==="midfield")s+=12;
+        if(piece.role==="attack")s+=8;
+        if(isAttackingHalf(AI_TEAM,m.row))s+=8;
+        s+=Math.random()*3;
+
+        if(s>bestSupportScore){
+          bestSupportScore=s;
+          bestSupport={piece,row:m.row,col:m.col};
+        }
+      });
+    });
+
+    if(bestSupport && bestSupportScore>10){
+      aiPlannedPassTargetId=bestSupport.piece.id;
+      return {
+        type:"move",
+        piece:bestSupport.piece,
+        row:bestSupport.row,
+        col:bestSupport.col,
+        postTakeSetup:true,
+        message:"Opponent moves support into a safe passing lane."
+      };
+    }
+  }
+
+  // 3. Alternatively, move WITH possession into the path of a free teammate
+  // so the following action can be a pass.
+  if(actionsRemaining>=2){
+    let bestCarry=null,bestCarryScore=-Infinity;
+
+    getLegalMoves(holder).forEach(m=>{
+      if(!aiMoveAllowedThisTurn(holder,m.row,m.col))return;
+
+      const holderThreats=aiTakeThreatCount(AI_TEAM,m.row,m.col);
+      const holderSafety=aiSquareSafetyScore(AI_TEAM,m.row,m.col);
+
+      const possibleTargets=pieces.filter(p=>
+        p.team===AI_TEAM &&
+        p.id!==holder.id &&
+        !isAIGoalBlocker(p) &&
+        withVirtualPosition(holder,m.row,m.col,()=>isLegalPass(holder,p))
+      );
+
+      if(!possibleTargets.length)return;
+
+      let bestTarget=null,bestTargetScore=-Infinity;
+      possibleTargets.forEach(target=>{
+        const ts=postTakePassScore(holder,target);
+        if(ts>bestTargetScore){
+          bestTargetScore=ts;
+          bestTarget=target;
+        }
+      });
+
+      let s=holderSafety-holderThreats*48+bestTargetScore*.7;
+
+      // Security is the priority here. Moving backwards is allowed.
+      if(holderThreats===0)s+=30;
+      if(nearestOpponentDistance(AI_TEAM,m.row,m.col)>=2)s+=15;
+
+      // Small reward for useful progress, but never at the expense of obvious danger.
+      const progress=distanceToGoal(AI_TEAM,holder.row,holder.col)-distanceToGoal(AI_TEAM,m.row,m.col);
+      if(progress>0)s+=progress*5;
+
+      s+=Math.random()*3;
+
+      if(s>bestCarryScore){
+        bestCarryScore=s;
+        bestCarry={row:m.row,col:m.col,target:bestTarget};
+      }
+    });
+
+    if(bestCarry && bestCarry.target){
+      aiPlannedPassTargetId=bestCarry.target.id;
+      return {
+        type:"move",
+        piece:holder,
+        row:bestCarry.row,
+        col:bestCarry.col,
+        postTakeSetup:true,
+        message:"Opponent carries possession into a safer passing lane."
+      };
+    }
+  }
+
+  // 4. If no pass can be built, at least move the possession piece to the safest
+  // useful square rather than standing still after the Take.
+  let safest=null,safestScore=-Infinity;
+  const currentThreats=aiTakeThreatCount(AI_TEAM,holder.row,holder.col);
+  const currentSafety=aiSquareSafetyScore(AI_TEAM,holder.row,holder.col);
+
+  getLegalMoves(holder).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(holder,m.row,m.col))return;
+
+    const threats=aiTakeThreatCount(AI_TEAM,m.row,m.col);
+    const safety=aiSquareSafetyScore(AI_TEAM,m.row,m.col);
+    const progress=distanceToGoal(AI_TEAM,holder.row,holder.col)-distanceToGoal(AI_TEAM,m.row,m.col);
+
+    let s=safety-threats*50;
+
+    if(threats===0)s+=28;
+    if(currentThreats>0 && threats===0)s+=45;
+    if(safety>currentSafety)s+=18;
+
+    // Forward progress is useful, but safety remains more important immediately after a Take.
+    if(progress>0)s+=progress*7;
+
+    // A safe retreat is allowed and can be the correct football decision.
+    if(progress<0 && threats===0 && safety>currentSafety)s+=12;
+
+    s+=Math.random()*2;
+
+    if(s>safestScore){
+      safestScore=s;
+      safest={row:m.row,col:m.col};
+    }
+  });
+
+  if(safest){
+    aiPostTakeActive=false;
+    aiPlannedPassTargetId=null;
+    return {
+      type:"move",
+      piece:holder,
+      row:safest.row,
+      col:safest.col,
+      postTakeEscape:true,
+      message:"Opponent protects possession after the Take."
+    };
+  }
+
+  // Nothing useful was available; let the normal attacking AI continue.
+  aiPostTakeActive=false;
+  aiPlannedPassTargetId=null;
+  return null;
+}
+
+
+/* BEGINNER AI — pre-advanced tactical level */
+function chooseBeginnerAIAttackAction(){
+  const pos=getPossessionPiece();
+  if(!pos||pos.team!==AI_TEAM){
+    aiMode="DEFENSE";
+    return chooseBeginnerAIDefenseAction();
+  }
+
+  const g=targetGoalFor(AI_TEAM);
+  if(isLegalMove(pos,g.row,g.col)){
+    return {type:"move",piece:pos,row:g.row,col:g.col,message:"Opponent attacks goal."};
+  }
+
+  const scorers=pieces.filter(p=>
+    p.team===AI_TEAM &&
+    p.id!==pos.id &&
+    p.role!=="defence" &&
+    isLegalPass(pos,p) &&
+    canReachTargetGoalIfPossession(p)
+  );
+  if(scorers.length){
+    return {
+      type:"pass",
+      from:pos,
+      to:scorers.sort((a,b)=>rolePriorityValue(b.role)-rolePriorityValue(a.role))[0]
+    };
+  }
+
+  if(actionsRemaining>1&&aiSupportMovesUsed<2){
+    const a=chooseAttackSupport();
+    if(a){
+      aiSupportMovesUsed++;
+      return a;
+    }
+  }
+
+  const forward=pieces.filter(p=>
+    p.team===AI_TEAM &&
+    p.id!==pos.id &&
+    isAttackingHalf(AI_TEAM,p.row) &&
+    isOpenSpace(AI_TEAM,p.row,p.col) &&
+    isLegalPass(pos,p)
+  );
+  if(forward.length){
+    return {
+      type:"pass",
+      from:pos,
+      to:forward.sort((a,b)=>
+        distanceToGoal(AI_TEAM,a.row,a.col)-distanceToGoal(AI_TEAM,b.row,b.col)
+      )[0]
+    };
+  }
+
+  let best=null,bestScore=-Infinity;
+  const currentGoalDistance=distanceToGoal(AI_TEAM,pos.row,pos.col);
+  const currentOpponentDistance=nearestOpponentDistance(AI_TEAM,pos.row,pos.col);
+
+  getLegalMoves(pos).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(pos,m.row,m.col))return;
+
+    const newGoalDistance=distanceToGoal(AI_TEAM,m.row,m.col);
+    const newOpponentDistance=nearestOpponentDistance(AI_TEAM,m.row,m.col);
+    const goalProgress=currentGoalDistance-newGoalDistance;
+    const safetyChange=newOpponentDistance-currentOpponentDistance;
+
+    let s=
+      goalProgress*18 +
+      newOpponentDistance*8 +
+      aiMoveVarietyScore(pos) +
+      Math.random()*2;
+
+    if(safetyChange<0){
+      if(goalProgress<=0)s-=55+Math.abs(safetyChange)*20;
+      else s-=Math.abs(safetyChange)*10;
+    }
+
+    if(goalProgress>0&&safetyChange>=0)s+=22;
+    if(goalProgress>=2)s+=18;
+    if(newOpponentDistance<=1&&newGoalDistance>1)s-=45;
+    if(newGoalDistance<=2&&goalProgress>0)s+=28;
+
+    if(s>bestScore){
+      bestScore=s;
+      best={
+        type:"move",
+        piece:pos,
+        row:m.row,
+        col:m.col,
+        message:"Opponent carries possession into safer attacking space."
+      };
+    }
+  });
+
+  if(best)return best;
+
+  const passes=pieces.filter(p=>p.team===AI_TEAM&&p.id!==pos.id&&isLegalPass(pos,p));
+  return passes.length?{type:"pass",from:pos,to:passes[0]}:null;
+}
+
+function chooseBeginnerAIDefenseAction(){
+  const pos=getPossessionPiece();
+
+  if(pos&&pos.team===AI_TEAM){
+    aiMode="ATTACK";
+    return chooseBeginnerAIAttackAction();
+  }
+
+  const takers=pieces.filter(p=>p.team===AI_TEAM&&canTakePossession(p));
+  if(takers.length){
+    return {
+      type:"take",
+      piece:takers.sort((a,b)=>rolePriorityValue(b.role)-rolePriorityValue(a.role))[0]
+    };
+  }
+
+  if(!pos)return null;
+
+  let best=null,bestScore=-Infinity;
+
+  pieces.filter(p=>p.team===AI_TEAM).forEach(piece=>
+    getLegalMoves(piece).forEach(m=>{
+      if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+
+      let s=rolePriorityValue(piece.role)+aiMoveVarietyScore(piece);
+      const d=chebyshevDistance(m.row,m.col,pos.row,pos.col);
+
+      if(piece.role==="attack")s-=d*6;
+      if(piece.role==="midfield"){
+        s-=d*3;
+        s-=Math.abs(m.col-4)*2;
+      }
+
+      if(piece.role==="defence"){
+        const g=ownGoalFor(AI_TEAM);
+        s-=chebyshevDistance(m.row,m.col,g.row,g.col)*3;
+        s-=Math.abs(m.col-pos.col)*2;
+      }
+
+      if(
+        piece.movement==="plus" &&
+        getHalfFromRow(m.row)===getHalf(pos) &&
+        (m.row===pos.row||m.col===pos.col)
+      )s+=90;
+
+      if(d===1)s+=70;
+      s+=Math.random()*4;
+
+      if(s>bestScore){
+        bestScore=s;
+        best={type:"move",piece,row:m.row,col:m.col};
+      }
+    })
+  );
+
+  return best;
+}
+
+function chooseAIAttackAction(){
+  const pos=getPossessionPiece();
+  if(!pos||pos.team!==AI_TEAM)return chooseAIDefenseAction();
+
+  const advanced=aiUseAdvancedTactics();
+
+  // 1. Score immediately whenever possible.
+  const scoreMove=getLegalMoves(pos).find(m=>isTargetGoalCell(AI_TEAM,m.row,m.col));
+  if(scoreMove){
+    aiPostTakeActive=false;
+    aiPlannedPassTargetId=null;
+    return {type:"move",piece:pos,row:scoreMove.row,col:scoreMove.col,message:"Opponent attacks the scoring block."};
+  }
+
+  // In the attacking half, prioritise a legal pass to another teammate
+  // who is also in the attacking half. Under DMA scoring this earns +1,
+  // so it is usually better than repeatedly carrying with the same piece.
+  if(isAttackingHalf(AI_TEAM,pos.row)){
+    const attackingHalfTargets=pieces.filter(p=>
+      p.team===AI_TEAM &&
+      p.id!==pos.id &&
+      !p.possession &&
+      isAttackingHalf(AI_TEAM,p.row) &&
+      !isAIGoalBlocker(p) &&
+      isLegalPass(pos,p)
+    );
+
+    if(attackingHalfTargets.length){
+      let bestTarget=null;
+      let bestTargetScore=-Infinity;
+
+      attackingHalfTargets.forEach(target=>{
+        const threats=aiTakeThreatCount(AI_TEAM,target.row,target.col);
+        let s=scoreAIPassOption(pos,target);
+
+        // Strong bonus because both passer and receiver are in opposition half,
+        // therefore the pass itself earns a point.
+        s+=75;
+
+        // Safe point-scoring passes are especially attractive.
+        if(threats===0)s+=28;
+        if(nearestOpponentDistance(AI_TEAM,target.row,target.col)>=2)s+=12;
+
+        // Still avoid obvious traps when possible.
+        if(threats>0)s-=threats*30;
+
+        // Prefer receivers closer to the scoring block when safety is similar.
+        s-=distanceToGoal(AI_TEAM,target.row,target.col)*3;
+
+        s+=Math.random()*3;
+
+        if(s>bestTargetScore){
+          bestTargetScore=s;
+          bestTarget=target;
+        }
+      });
+
+      if(bestTarget){
+        aiPostTakeActive=false;
+        aiPlannedPassTargetId=null;
+        return {
+          type:"pass",
+          from:pos,
+          to:bestTarget,
+          message:"Opponent earns a point with an attacking-half pass."
+        };
+      }
+    }
+  }
+
+  // Immediately after a successful Take, secure the possession instead of
+  // leaving the new holder standing under pressure.
+  if(aiPostTakeActive){
+    const secureAction=choosePostTakeSecureAction();
+    if(secureAction)return secureAction;
+  }
+
+  // 2. Occasionally prepare the team before changing possession.
+  // This makes the AI feel more like it is building an attack rather than passing immediately.
+  if(advanced && actionsRemaining>=2){
+    const support=choosePrePassSupportMove();
+    if(support)return support;
+  }
+
+  // 3. Find safe/valuable passes.
+  const allPassTargets=pieces.filter(p=>p.team===AI_TEAM && p.id!==pos.id && isLegalPass(pos,p));
+  const preferredPassTargets=allPassTargets.filter(p=>!isAIGoalBlocker(p));
+  const teammates=preferredPassTargets.length?preferredPassTargets:allPassTargets;
+  if(teammates.length){
+    let bestPass=null,bestScore=-Infinity;
+
+    teammates.forEach(to=>{
+      let s=scoreAIPassOption(pos,to);
+
+      // If receiver could score next move, make this highly attractive.
+      const receiverCanScore=getLegalMoves(to).some(m=>isTargetGoalCell(AI_TEAM,m.row,m.col));
+      if(receiverCanScore)s+=90;
+
+      // Advanced mode is more security-conscious.
+      if(advanced){
+        const threats=aiTakeThreatCount(AI_TEAM,to.row,to.col);
+        if(threats>0)s-=45*threats;
+      }
+
+      s+=Math.random()*5;
+
+      if(s>bestScore){
+        bestScore=s;
+        bestPass={type:"pass",from:pos,to,message:"Opponent changes possession to a better-positioned teammate."};
+      }
+    });
+
+    // Use the pass if it is clearly useful.
+    if(bestPass && bestScore>10)return bestPass;
+  }
+
+  // 4. Carry possession toward the scoring zone while avoiding obvious next-turn Take threats.
+  let best=null,bestScore=-Infinity;
+  const currentGoalDistance=distanceToGoal(AI_TEAM,pos.row,pos.col);
+  const currentOpponentDistance=nearestOpponentDistance(AI_TEAM,pos.row,pos.col);
+  const currentThreats=aiTakeThreatCount(AI_TEAM,pos.row,pos.col);
+
+  getLegalMoves(pos).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(pos,m.row,m.col))return;
+
+    const newGoalDistance=distanceToGoal(AI_TEAM,m.row,m.col);
+    const newOpponentDistance=nearestOpponentDistance(AI_TEAM,m.row,m.col);
+    const goalProgress=currentGoalDistance-newGoalDistance;
+    const safetyChange=newOpponentDistance-currentOpponentDistance;
+    const newThreats=aiTakeThreatCount(AI_TEAM,m.row,m.col);
+
+    let s=
+      goalProgress*20 +
+      newOpponentDistance*8 +
+      aiMoveVarietyScore(pos) +
+      Math.random()*2;
+
+    // Avoid unnecessarily moving closer to opponents.
+    if(safetyChange<0){
+      if(goalProgress<=0)s-=60+Math.abs(safetyChange)*20;
+      else s-=Math.abs(safetyChange)*10;
+    }
+
+    // Explicitly anticipate the opponent's next Take Possession.
+    if(advanced && newThreats>0){
+      s-=newThreats*55;
+
+      // Moving from a safe square into a threatened square is especially bad.
+      if(currentThreats===0)s-=25;
+    }
+
+    // Reward safer attacking progress.
+    if(goalProgress>0 && safetyChange>=0)s+=24;
+    if(goalProgress>=2)s+=18;
+
+    // Avoid stepping into immediate pressure unless very close to scoring.
+    if(newOpponentDistance<=1 && newGoalDistance>1)s-=48;
+
+    // Near goal, allow more calculated risk.
+    if(newGoalDistance<=2 && goalProgress>0)s+=32;
+    if(newGoalDistance===1)s+=28;
+
+    if(s>bestScore){
+      bestScore=s;
+      best={
+        type:"move",
+        piece:pos,
+        row:m.row,
+        col:m.col,
+        message:newThreats>0
+          ?"Opponent accepts pressure to advance."
+          :"Opponent carries possession into safer attacking space."
+      };
+    }
+  });
+
+  if(best)return best;
+
+  // 5. If no useful possession move exists, improve team shape.
+  const support=chooseAttackSupport();
+  if(support)return support;
+
+  // 6. Fallback pass.
+  if(teammates.length){
+    const sorted=teammates
+      .map(to=>({to,score:scoreAIPassOption(pos,to)}))
+      .sort((a,b)=>b.score-a.score);
+    return {type:"pass",from:pos,to:sorted[0].to,message:"Opponent retains possession."};
+  }
+
+  return null;
+}
+function chooseAIDefenseAction(){
+  const pos=getPossessionPiece();if(pos&&pos.team===AI_TEAM){aiMode="ATTACK";return chooseAIAttackAction()}
+  const takers=pieces.filter(p=>p.team===AI_TEAM&&canTakePossession(p));
+  if(takers.length){
+    const nonBlockers=takers.filter(p=>!isAIGoalBlocker(p));
+    const pool=nonBlockers.length?nonBlockers:takers;
+    return{type:"take",piece:pool.sort((a,b)=>rolePriorityValue(b.role)-rolePriorityValue(a.role))[0]};
+  }
+  if(!pos)return null;let best=null,bestScore=-Infinity;
+  pieces.filter(p=>p.team===AI_TEAM).forEach(piece=>getLegalMoves(piece).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+    let s=rolePriorityValue(piece.role)+aiMoveVarietyScore(piece),d=chebyshevDistance(m.row,m.col,pos.row,pos.col);
+    if(piece.role==="attack")s-=d*6;if(piece.role==="midfield"){s-=d*3;s-=Math.abs(m.col-4)*2}
+    if(piece.role==="defence"){const g=ownGoalFor(AI_TEAM);s-=chebyshevDistance(m.row,m.col,g.row,g.col)*3;s-=Math.abs(m.col-pos.col)*2}
+    if(piece.movement==="plus"&&getHalfFromRow(m.row)===getHalf(pos)&&(m.row===pos.row||m.col===pos.col))s+=90;if(d===1)s+=70;s+=Math.random()*4;
+    if(s>bestScore){bestScore=s;best={type:"move",piece,row:m.row,col:m.col}}
+  }));return best;
+}
+function chooseAIAction(){
+  const p=getPossessionPiece();
+  aiMode=p&&p.team===AI_TEAM?"ATTACK":"DEFENSE";
+  updateInterface();
+
+  if(aiDifficulty==="beginner"){
+    return aiMode==="ATTACK"
+      ?chooseBeginnerAIAttackAction()
+      :chooseBeginnerAIDefenseAction();
+  }
+
+  return aiMode==="ATTACK"
+    ?chooseAIAttackAction()
+    :chooseAIDefenseAction();
+}
+function executeAIAction(a){
+  if(!a)return false;
+
+  if(a.type==="take"){
+    const ok=performTakePossession(a.piece,{byAI:true});
+    if(ok){
+      aiMode="ATTACK";
+      aiSupportMovesUsed=0;
+      aiPostTakeActive=aiDifficulty==="hard";
+      aiPlannedPassTargetId=null;
+      // Hard AI activates advanced post-Take security planning.
+      // Beginner simply continues with normal remaining actions.
+    }
+    return ok;
+  }
+
+  if(a.type==="pass"){
+    const ok=performPass(a.from,a.to,{byAI:true});
+    if(ok && a.postTakePass){
+      aiPostTakeActive=false;
+      aiPlannedPassTargetId=null;
+    }
+    return ok;
+  }
+
+  if(a.type==="move"){
+    if(!isLegalMove(a.piece,a.row,a.col))return false;
+    executeMove(a.piece,a.row,a.col,{byAI:true});
+    return true;
+  }
+
+  return false;
+}
+function performNextAIAction(serial){
+  if(serial!==turnSerial||currentTeam!==AI_TEAM||gameOver||paused||halftimeActive||roundResetPending)return;
+  if(actionsRemaining<=0){endTurn();return}
+
+  const a=chooseAIAction();
+
+  // If no useful action exists, the AI may end its turn.
+  if(!a){
+    setTimeout(()=>{if(serial===turnSerial)endTurn()},350);
+    return;
+  }
+
+  const before=actionsRemaining;
+  const ok=executeAIAction(a);
+
+  if(gameOver||halftimeActive||roundResetPending)return;
+
+  // If an AI choice became invalid, do not freeze/end the turn immediately.
+  // Clear any stale post-take plan and try another legal action.
+  if(!ok){
+    aiPlannedPassTargetId=null;
+    setTimeout(()=>{
+      if(serial===turnSerial&&currentTeam===AI_TEAM&&actionsRemaining>0){
+        performNextAIAction(serial);
+      }
+    },220);
+    return;
+  }
+
+  if(actionsRemaining<=0){
+    setTimeout(()=>{if(serial===turnSerial)endTurn()},400);
+    return;
+  }
+
+  // Continue using every remaining action after Take Possession, pass, or move.
+  setTimeout(()=>performNextAIAction(serial),AI_DELAY);
+}
+
+/* Match timer */
+function startTimer(){
+  if(gameInterval)clearInterval(gameInterval);
+  gameInterval=setInterval(()=>{
+    if(!gameStarted||paused||gameOver||halftimeActive)return;gameTimeRemaining--;turnTimeRemaining--;
+    if(gameTimeRemaining<=HALF_TIME_REMAINING&&!halftimeTriggered){gameTimeRemaining=HALF_TIME_REMAINING;triggerHalfTime();return}
+    if(gameTimeRemaining<=0){gameTimeRemaining=0;finishGame();return}
+    if(turnTimeRemaining<=0){endTurn();return}updateInterface();
+  },1000);
+}
+function triggerHalfTime(){
+  halftimeTriggered=true;halftimeActive=true;paused=true;turnSerial++;selectedPiece=null;clearPendingActions();document.getElementById("arrowLayer").innerHTML="";
+  document.getElementById("halfTimeScore").textContent=`${scores.cyan} - ${scores.orange}`;
+  const hs=document.getElementById("halfTimeSecondary");if(hs)hs.textContent=`Secondary: ${secondaryScores.cyan} - ${secondaryScores.orange}`;document.getElementById("halfTimeOverlay").classList.add("show");updateInterface();
+}
+function startSecondHalf(){
+  document.getElementById("halfTimeOverlay").classList.remove("show");setupPiecesFromFormations();pieces.forEach(p=>p.possession=false);
+  const starter=pieces.find(p=>p.team==="orange"&&p.role==="midfield")||pieces.find(p=>p.team==="orange");starter.possession=true;
+  currentTeam="orange";halftimeActive=false;paused=false;startNewTurn();
+}
+function finishGame(){
+  document.body.classList.remove("manager-journey-match");
+  gameOver=true;paused=true;turnSerial++;if(gameInterval)clearInterval(gameInterval);
+  profile.games++;profile.takes+=matchStats.cyanTakes;profile.secondary=(profile.secondary||0)+secondaryScores.cyan;
+  if(scores.cyan>scores.orange){profile.wins++;profile.rating+=15}else if(scores.cyan<scores.orange){profile.losses++;profile.rating=Math.max(0,profile.rating-12)}
+
+  let cyanName="CYAN",orangeName="ORANGE";
+  const wasManagerMatch=managerJourney&&managerJourney.awaitingUserMatch&&managerJourney.currentFixture;
+  if(wasManagerMatch){
+    const f=managerJourney.currentFixture;
+    const opponentId=f.home==="user"?f.away:f.home;
+    const opp=getManagerTeam(opponentId);
+    cyanName=managerJourney.clubName;
+    orangeName=opp.name;
+    completeManagerWeekWithUserScore(scores.cyan,scores.orange,secondaryScores.cyan,secondaryScores.orange);
+  }
+
+  document.getElementById("resultScore").textContent=`${scores.cyan} - ${scores.orange}`;
+  const rs2=document.getElementById("resultSecondaryScore");if(rs2)rs2.textContent=`Secondary: ${secondaryScores.cyan} - ${secondaryScores.orange}`;
+  document.getElementById("resultGoals").textContent=matchStats.cyanGoals;
+  document.getElementById("resultTakes").textContent=matchStats.cyanTakes;
+  document.getElementById("resultPasses").textContent=matchStats.cyanPasses;
+
+  const rc=document.getElementById("resultCyanName"),ro=document.getElementById("resultOrangeName");
+  if(rc)rc.textContent=cyanName;
+  if(ro)ro.textContent=orangeName;
+
+  const normal=document.getElementById("normalResultControls");
+  const manager=document.getElementById("managerResultControls");
+  if(normal)normal.style.display=wasManagerMatch?"none":"grid";
+  if(manager)manager.style.display=wasManagerMatch?"grid":"none";
+
+  showScreen("screen-results");
+}
+function togglePause(){if(!gameStarted||gameOver||halftimeActive)return;paused=!paused;document.getElementById("pauseButton").textContent=paused?"Resume":"Pause";if(!paused&&gameMode==="ai"&&currentTeam===AI_TEAM){const s=turnSerial;setTimeout(()=>performNextAIAction(s),350)}}
+function returnToMenuFromMatch(){if(gameInterval)clearInterval(gameInterval);gameStarted=false;paused=false;gameOver=false;showScreen("screen-menu")}
+function showPassButton(){document.getElementById("passButton").style.display="block";document.getElementById("takeButton").style.display="none"}
+function showTakeButton(){document.getElementById("takeButton").style.display="block";document.getElementById("passButton").style.display="none"}
+function clearPendingActions(){pendingPassReceiver=null;pendingTakePiece=null;document.getElementById("passButton").style.display="none";document.getElementById("takeButton").style.display="none"}
+function showMessage(t,type=""){const e=document.getElementById("message");e.textContent=t;e.className=type}
+function formatTime(s){return`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`}
+function updateInterface(){
+  const manualEndBtn=document.getElementById("endPhaseBtn");
+  if(manualEndBtn){
+    const humanCanEnd=
+      gameStarted &&
+      !gameOver &&
+      !paused &&
+      !halftimeActive &&
+      !roundResetPending &&
+      !(gameMode==="ai"&&currentTeam===AI_TEAM);
+    manualEndBtn.disabled=!humanCanEnd;
+    manualEndBtn.textContent="END TURN";
+  }
+
+  const exitBtn=document.getElementById("exitMatchBtn");
+  if(exitBtn)exitBtn.disabled=false;
+
+  if(!document.getElementById("cyanScore"))return;
+  document.getElementById("cyanScore").textContent=scores.cyan;document.getElementById("orangeScore").textContent=scores.orange;
+  const cs=document.getElementById("cyanSecondaryScore"),os=document.getElementById("orangeSecondaryScore");
+  if(cs)cs.textContent=secondaryScores.cyan;if(os)os.textContent=secondaryScores.orange;
+  document.getElementById("gameTimer").textContent=formatTime(gameTimeRemaining);document.getElementById("turnTimer").textContent=formatTime(turnTimeRemaining);
+  document.getElementById("halfLabel").textContent=halftimeActive?"HALF-TIME":halftimeTriggered?"SECOND HALF":"FIRST HALF";
+  document.getElementById("turnLabel").textContent=gameMode==="local"?`${currentTeam.toUpperCase()} TURN`:currentTeam===HUMAN_TEAM?"YOUR TURN":"OPPONENT TURN";
+  document.getElementById("modeLabel").textContent=
+    gameMode==="ai"&&currentTeam===AI_TEAM
+      ?`${aiDifficulty==="hard"?"HARD":"BEGINNER"} AI • ${aiMode} MODE`
+      :"";
+  [1,2,3].forEach((n,i)=>document.getElementById("action"+n).classList.toggle("active",i<actionsRemaining));
+  document.getElementById("cyanCard").classList.toggle("active",currentTeam==="cyan");document.getElementById("orangeCard").classList.toggle("active",currentTeam==="orange");
+  clearManagerJourneyHints();
+}
+
+/* Formation builder */
+function backFromFormation(){
+  if(managerJourney&&managerJourney.awaitingUserMatch){
+    managerJourney.awaitingUserMatch=false;
+    managerJourney.currentFixture=null;
+    saveManagerJourney();
+    showScreen("screen-manager");
+    renderManagerJourney();
+  }else{
+    showScreen("screen-playmenu");
+  }
+}
+
+function startFormationBuilder(mode,difficulty=null){
+  gameMode=mode;
+  if(mode==="ai"&&difficulty)aiDifficulty=difficulty;
+  formationPieces=SQUAD_POOL.map((p,i)=>({id:i+1,poolIndex:i,...p,row:null,col:null}));
+  selectedFormationId=null;
+  renderFormationBuilder();
+  showScreen("screen-formation");
+}
+function renderFormationBuilder(){
+  renderPieceTray();renderFormationBoard();
+  const placed=formationPieces.filter(p=>p.row!==null).length;
+  const remaining=10-placed;
+  document.getElementById("formationMessage").textContent=
+    placed===10
+      ? "Formation ready: 10/10 selected. The remaining 2 pieces will not play this match."
+      : `Placed ${placed}/10. Select ${remaining} more piece${remaining===1?"":"s"} from the 12-piece squad.`;
+  document.getElementById("startMatchFromFormation").disabled=placed!==10;
+}
+function renderPieceTray(){
+  const tray=document.getElementById("pieceTray");tray.innerHTML="";
+  ["defence","midfield","attack"].forEach(role=>{
+    const g=document.createElement("div");g.className="tray-group";g.innerHTML=`<h4>${role.toUpperCase()}</h4>`;
+    const row=document.createElement("div");row.className="tray-pieces";
+    formationPieces.filter(p=>p.role===role).forEach(p=>{
+      const b=document.createElement("button");
+      const isPlaced=p.row!==null;
+      b.className="tray-piece"+(selectedFormationId===p.id?" selected":"")+(isPlaced?" used":"");
+      b.textContent=(role==="defence"?"□":role==="midfield"?"○":"△")+(p.movement==="plus"?"+":"♦");
+      b.title=isPlaced?"Already selected for this formation":"Available";
+      b.onclick=()=>{
+        selectedFormationId=p.id;
+        document.getElementById("formationMessage").textContent=
+          isPlaced
+            ? "This piece is already in the formation. Select a new square to reposition it."
+            : "Piece selected. Choose an empty square in your own half.";
+        renderFormationBoard();
+        renderPieceTray();
+      };
+      row.appendChild(b);
+    });
+    g.appendChild(row);tray.appendChild(g);
+  });
+}
+function renderFormationBoard(){
+  const board=document.getElementById("formationBoard");board.innerHTML="";
+  for(let r=0;r<6;r++)for(let c=0;c<COLS;c++){
+    const cell=document.createElement("div");cell.className="cell";if(r===5)cell.classList.add("middle-line");
+    if(r===0&&c===4){cell.classList.add("scoring-zone");const g=document.createElement("div");g.className="goal-symbol";cell.appendChild(g)}
+    const p=formationPieces.find(x=>x.row===r&&x.col===c);
+    if(p){
+      const el=document.createElement("div");el.classList.add("piece","cyan",p.role);if(selectedFormationId===p.id)el.classList.add("selected");
+      const s=document.createElement("span");s.className="symbol";s.textContent=p.movement==="plus"?"+":"♦";el.appendChild(s);cell.appendChild(el);
+      el.onclick=(e)=>{e.stopPropagation();selectedFormationId=p.id;renderFormationBuilder()};
+    }
+    cell.onclick=()=>placeFormationPiece(r,c);board.appendChild(cell);
+  }
+}
+function placeFormationPiece(r,c){
+  if(!selectedFormationId)return;
+  if(r===0&&c===4){document.getElementById("formationMessage").textContent="The scoring block cannot be used in the starting formation.";return}
+  const occupied=formationPieces.find(p=>p.row===r&&p.col===c);if(occupied)return;
+  const p=formationPieces.find(p=>p.id===selectedFormationId);
+  const placedCount=formationPieces.filter(x=>x.row!==null).length;
+  if(p.row===null&&placedCount>=10){
+    document.getElementById("formationMessage").textContent="You already selected 10 pieces. Remove one before choosing a different piece.";
+    return;
+  }
+  p.row=r;p.col=c;selectedFormationId=null;renderFormationBuilder();
+}
+function clearFormation(){
+  formationPieces.forEach(p=>{p.row=null;p.col=null});
+  selectedFormationId=null;renderFormationBuilder();
+}
+function loadDefaultFormation(){
+  formationPieces.forEach(p=>{p.row=null;p.col=null});
+  const positions=defaultFormation("cyan");
+  DEFAULT_SQUAD_INDICES.forEach((poolIndex,i)=>{
+    const p=formationPieces.find(x=>x.poolIndex===poolIndex);
+    p.row=positions[i].row;p.col=positions[i].col;
+  });
+  selectedFormationId=null;renderFormationBuilder();
+}
+function randomizeFormation(){
+  formationPieces.forEach(p=>{p.row=null;p.col=null});
+  const names=Object.keys(STRUCTURED_FORMATIONS);
+  const name=names[Math.floor(Math.random()*names.length)];
+  const shape=STRUCTURED_FORMATIONS[name];
+
+  // Shuffle references to the real formationPieces (not cloned copies),
+  // then place exactly the role counts required by the selected shape.
+  const shuffleRefs=arr=>{
+    const a=[...arr];
+    for(let i=a.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [a[i],a[j]]=[a[j],a[i]];
+    }
+    return a;
+  };
+  const chosenByRole={
+    defence:shuffleRefs(formationPieces.filter(p=>p.role==="defence")).slice(0,shape.defence.length),
+    midfield:shuffleRefs(formationPieces.filter(p=>p.role==="midfield")).slice(0,shape.midfield.length),
+    attack:shuffleRefs(formationPieces.filter(p=>p.role==="attack")).slice(0,shape.attack.length)
+  };
+
+  ["defence","midfield","attack"].forEach(role=>{
+    shape[role].forEach((sq,i)=>{
+      const target=mirrorFormationSquare("cyan",sq);
+      const p=chosenByRole[role][i];
+      if(p){p.row=target.row;p.col=target.col}
+    });
+  });
+
+  selectedFormationId=null;
+  renderFormationBuilder();
+  document.getElementById("formationMessage").textContent=`Random ${name} formation generated — 10/10 pieces ready.`;
+}
+function saveFormationPreset(){
+  const selected=formationPieces.filter(p=>p.row!==null);
+  if(selected.length!==10){
+    document.getElementById("formationMessage").textContent="Select and place exactly 10 of the 12 pieces before saving.";
+    return;
+  }
+  const name=prompt("Name this formation:");if(!name)return;
+  const opt=document.createElement("option");opt.value=name;opt.textContent=name;
+  opt.dataset.formation=JSON.stringify(selected.map(p=>({
+    poolIndex:p.poolIndex,role:p.role,movement:p.movement,row:p.row,col:p.col
+  })));
+  document.getElementById("savedFormationSelect").appendChild(opt);
+  document.getElementById("formationMessage").textContent=`Saved formation: ${name}`;
+}
+document.getElementById("savedFormationSelect").addEventListener("change",function(){
+  const opt=this.options[this.selectedIndex];if(!opt.dataset.formation)return;
+  const stored=JSON.parse(opt.dataset.formation);
+  formationPieces=SQUAD_POOL.map((p,i)=>({id:i+1,poolIndex:i,...p,row:null,col:null}));
+  stored.forEach(item=>{
+    const p=formationPieces.find(x=>x.poolIndex===item.poolIndex);
+    if(p){p.row=item.row;p.col=item.col}
+  });
+  selectedFormationId=null;renderFormationBuilder();
+});
+function confirmFormationAndStart(){
+  const selected=formationPieces.filter(p=>p.row!==null);
+  if(selected.length!==10){
+    document.getElementById("formationMessage").textContent="Select exactly 10 of the 12 pieces before starting.";
+    return;
+  }
+  savedPlayerFormation=selected.map(p=>({role:p.role,movement:p.movement,row:p.row,col:p.col}));
+  savedOrangeFormation=generateStructuredSquadFormation("orange");
+  startMatch();
+}
+function startMatch(){
+  document.body.classList.toggle("manager-journey-match",isManagerJourneyMatch());
+  setupPiecesFromFormations();pieces.forEach(p=>p.possession=false);
+
+  let cyanDisplay="● CYAN",orangeDisplay="ORANGE ●";
+  if(managerJourney&&managerJourney.awaitingUserMatch&&managerJourney.currentFixture){
+    const f=managerJourney.currentFixture;
+    const opponentId=f.home==="user"?f.away:f.home;
+    const opp=getManagerTeam(opponentId);
+    cyanDisplay=`● ${managerJourney.clubName}`;
+    orangeDisplay=`${opp.name} ●`;
+  }
+  const cyanNameEl=document.getElementById("cyanTeamName");
+  const orangeNameEl=document.getElementById("orangeTeamName");
+  if(cyanNameEl)cyanNameEl.textContent=cyanDisplay;
+  if(orangeNameEl)orangeNameEl.textContent=orangeDisplay;
+
+  const starter=pieces.find(p=>p.team==="cyan"&&p.role==="midfield"&&p.movement==="diamond")||pieces.find(p=>p.team==="cyan");starter.possession=true;
+  scores={cyan:0,orange:0};secondaryScores={cyan:0,orange:0};matchStats={cyanGoals:0,cyanTakes:0,cyanPasses:0,orangeGoals:0,orangeTakes:0,orangePasses:0};
+  gameTimeRemaining=GAME_DURATION;turnTimeRemaining=TURN_DURATION;actionsRemaining=ACTIONS_PER_TURN;currentTeam="cyan";gameStarted=true;paused=false;gameOver=false;halftimeTriggered=false;halftimeActive=false;roundResetPending=false;
+  buildMatchBoard();showScreen("screen-match");startNewTurn();startTimer();
+}
+
+/* Tutorial */
+let learnStep=0;
+const learnSteps=[
+  {title:"Welcome to DMA",text:"DMA is a strategic football board game. Control possession, create passing lanes, defend space and score more points than your opponent.",extra:`<div class="info-grid"><div class="info-card"><strong>5 minutes</strong><span>2 × 2:30 halves</span></div><div class="info-card"><strong>3 actions</strong><span>per turn</span></div><div class="info-card"><strong>30 seconds</strong><span>per turn</span></div></div>`,demo:"roles"},
+  {title:"Movement",text:"The symbol inside the piece controls its movement channel. + moves horizontally or vertically. ♦ also moves diagonally.",demo:"movement"},
+  {title:"Roles",text:"Square Defence stays in its half. Circle Midfield operates in both halves. Triangle Attack can enter the attacking half and cannot return once it has crossed.",demo:"skip"},
+  {title:"Passing",text:"The red ring shows possession. Passing changes the ring to the receiver; the pieces themselves do not move. A pass earns +1 only when both the passer and receiver are already in the opposition half.",demo:"pass"},
+  {title:"Take Possession",text:"A legal Take Possession changes only possession and earns +1. The piece must already be eligible when the turn begins.",demo:"take"},
+  {title:"Scoring",text:"Move the possession piece into the opponent's gold scoring block to earn +3.",demo:"score"},
+  {title:"Blocking",text:"Defence blocks Attack movement. Good positioning can stop a scoring route without immediately winning possession.",demo:"block"}
+];
+function startLearnTutorial(){learnStep=0;document.getElementById("learnOverlay").classList.add("show");renderLearn()}
+function closeTutorials(){document.getElementById("learnOverlay").classList.remove("show");document.getElementById("practiceOverlay").classList.remove("show");showScreen("screen-menu")}
+function nextLearnStep(){if(learnStep<learnSteps.length-1){learnStep++;renderLearn()}else{document.getElementById("learnOverlay").classList.remove("show");startPracticeTutorial()}}
+function demoCell(sel,r,c){return document.querySelector(`${sel} .demo-cell[data-row="${r}"][data-col="${c}"]`)}
+function buildDemoBoard(sel){const b=document.querySelector(sel);b.innerHTML="";for(let r=0;r<7;r++)for(let c=0;c<7;c++){const d=document.createElement("div");d.className="demo-cell";d.dataset.row=r;d.dataset.col=c;b.appendChild(d)}}
+function addDemoPiece(sel,r,c,shape,team,symbol,possession=false){
+  const p=document.createElement("div");p.className=`demo-piece ${shape} ${team}${possession?" possession":""}`;const s=document.createElement("span");s.textContent=symbol;p.appendChild(s);demoCell(sel,r,c).appendChild(p);return p;
+}
+function drawDemoArrow(sel,fr,fc,tr,tc){
+  const board=document.querySelector(sel),a=demoCell(sel,fr,fc).getBoundingClientRect(),b=demoCell(sel,tr,tc).getBoundingClientRect(),br=board.getBoundingClientRect();
+  const x1=a.left-br.left+a.width/2,y1=a.top-br.top+a.height/2,x2=b.left-br.left+b.width/2,y2=b.top-br.top+b.height/2,dx=x2-x1,dy=y2-y1,len=Math.hypot(dx,dy)||1,ux=dx/len,uy=dy/len,px=-uy,py=ux,h=10,ex=x2-ux*12,ey=y2-uy*12;
+  const layer=document.createElement("div");layer.className="demo-arrow";layer.innerHTML=`<svg viewBox="0 0 ${br.width} ${br.height}"><line x1="${x1}" y1="${y1}" x2="${ex}" y2="${ey}"></line><polygon points="${ex},${ey} ${ex-ux*h+px*h*.65},${ey-uy*h+py*h*.65} ${ex-ux*h-px*h*.65},${ey-uy*h-py*h*.65}"></polygon></svg>`;board.appendChild(layer);
+}
+function renderLearn(){
+  const s=learnSteps[learnStep];document.getElementById("learnTitle").textContent=s.title;document.getElementById("learnText").textContent=s.text;document.getElementById("learnExtra").innerHTML=s.extra||"";document.getElementById("learnNextButton").textContent=learnStep===learnSteps.length-1?"Practice the Controls":"Next";
+  buildDemoBoard("#learnBoard");
+  if(s.demo==="roles"){addDemoPiece("#learnBoard",5,1,"square","cyan","+");addDemoPiece("#learnBoard",4,3,"circle","cyan","♦");addDemoPiece("#learnBoard",3,5,"triangle","cyan","+")}
+  if(s.demo==="movement"){addDemoPiece("#learnBoard",3,3,"circle","cyan","♦");[[0,3],[1,3],[2,3],[4,3],[5,3],[6,3],[3,0],[3,1],[3,2],[3,4],[3,5],[3,6],[0,0],[1,1],[2,2],[4,4],[5,5],[6,6]].forEach(x=>demoCell("#learnBoard",x[0],x[1]).classList.add("channel"))}
+  if(s.demo==="skip"){addDemoPiece("#learnBoard",5,1,"triangle","cyan","♦");addDemoPiece("#learnBoard",4,2,"circle","orange","+");addDemoPiece("#learnBoard",3,3,"triangle","orange","+");addDemoPiece("#learnBoard",2,4,"square","orange","+");setTimeout(()=>drawDemoArrow("#learnBoard",5,1,3,3),0)}
+  if(s.demo==="pass"){addDemoPiece("#learnBoard",5,1,"circle","cyan","♦",true);addDemoPiece("#learnBoard",2,4,"triangle","cyan","+");setTimeout(()=>drawDemoArrow("#learnBoard",5,1,2,4),0)}
+  if(s.demo==="take"){addDemoPiece("#learnBoard",3,4,"circle","orange","♦",true);addDemoPiece("#learnBoard",3,1,"triangle","cyan","+");setTimeout(()=>drawDemoArrow("#learnBoard",3,4,3,1),0)}
+  if(s.demo==="score"){addDemoPiece("#learnBoard",3,3,"triangle","cyan","♦",true);const g=document.createElement("div");g.className="demo-goal";demoCell("#learnBoard",0,3).appendChild(g);setTimeout(()=>drawDemoArrow("#learnBoard",3,3,0,3),0)}
+  if(s.demo==="block"){addDemoPiece("#learnBoard",5,3,"triangle","orange","+");addDemoPiece("#learnBoard",2,3,"square","cyan","+");const g=document.createElement("div");g.className="demo-goal";demoCell("#learnBoard",0,3).appendChild(g)}
+}
+
+let practiceStep=0;
+const practiceSteps=[
+  {title:"Move a Piece",text:"Use the real interaction pattern.",instruction:"Press the highlighted ♦ piece, then press a highlighted destination.",type:"move"},
+  {title:"Pass Possession",text:"Select the receiving teammate first.",instruction:"Press the highlighted teammate. Then press PASS POSSESSION when it appears.",type:"pass"},
+  {title:"Take Possession",text:"Select your piece that is already in a legal taking position.",instruction:"Press the highlighted piece. Then press TAKE POSSESSION.",type:"take"},
+  {title:"Score",text:"Scoring is a legal movement into the gold scoring block.",instruction:"Select the possession piece, then press the gold scoring block.",type:"score"},
+  {title:"Block",text:"Use Defence to close an opponent Attack route.",instruction:"Select Defence and move it into the highlighted route.",type:"block"}
+];
+function startPracticeTutorial(){practiceStep=0;document.getElementById("practiceOverlay").classList.add("show");renderPractice()}
+function practiceComplete(msg){document.getElementById("practiceSuccess").textContent=msg;document.getElementById("practiceNextButton").disabled=false}
+function moveDemoPiece(sel,piece,r,c){
+  const target=demoCell(sel,r,c);
+  if(target&&piece)target.appendChild(piece);
+}
+function transferDemoPossession(fromPiece,toPiece){
+  if(fromPiece)fromPiece.classList.remove("possession");
+  if(toPiece)toPiece.classList.add("possession");
+}
+function renderPractice(){
+  const s=practiceSteps[practiceStep];document.getElementById("practiceTitle").textContent=s.title;document.getElementById("practiceText").textContent=s.text;document.getElementById("practiceInstruction").textContent=s.instruction;document.getElementById("practiceSuccess").textContent="";
+  document.getElementById("practicePassButton").style.display="none";document.getElementById("practiceTakeButton").style.display="none";document.getElementById("practiceNextButton").disabled=true;document.getElementById("practiceNextButton").textContent=practiceStep===practiceSteps.length-1?"Finish Tutorial":"Continue";buildDemoBoard("#practiceBoard");
+  if(s.type==="move"){
+    const p=addDemoPiece("#practiceBoard",4,3,"circle","cyan","♦");p.style.outline="3px solid #ffd54d";
+    p.onclick=()=>{[[1,0],[1,3],[1,6],[4,0],[4,6],[6,1],[6,3],[6,5]].forEach(([r,c])=>{const cell=demoCell("#practiceBoard",r,c);cell.classList.add("highlight");cell.onclick=()=>{moveDemoPiece("#practiceBoard",p,r,c);document.querySelectorAll("#practiceBoard .demo-cell").forEach(x=>x.classList.remove("highlight"));practiceComplete("✓ Piece moved.")}})}
+  }else if(s.type==="pass"){
+    const holder=addDemoPiece("#practiceBoard",5,1,"circle","cyan","♦",true);const receiver=addDemoPiece("#practiceBoard",2,4,"triangle","cyan","+");receiver.style.outline="3px solid #ffd54d";
+    receiver.onclick=()=>document.getElementById("practicePassButton").style.display="inline-block";
+    document.getElementById("practicePassButton").onclick=()=>{drawDemoArrow("#practiceBoard",5,1,2,4);transferDemoPossession(holder,receiver);practiceComplete("✓ Possession passed: +1 secondary when both pieces are in the opposition half.")};
+  }else if(s.type==="take"){
+    const holder=addDemoPiece("#practiceBoard",3,4,"circle","orange","♦",true);const taker=addDemoPiece("#practiceBoard",3,1,"triangle","cyan","+");taker.style.outline="3px solid #ffd54d";
+    taker.onclick=()=>document.getElementById("practiceTakeButton").style.display="inline-block";
+    document.getElementById("practiceTakeButton").onclick=()=>{drawDemoArrow("#practiceBoard",3,4,3,1);transferDemoPossession(holder,taker);practiceComplete("✓ Possession won: +1 secondary.")};
+  }else if(s.type==="score"){
+    const p=addDemoPiece("#practiceBoard",3,3,"triangle","cyan","♦",true);p.style.outline="3px solid #ffd54d";const goalCell=demoCell("#practiceBoard",0,3);const g=document.createElement("div");g.className="demo-goal";goalCell.appendChild(g);
+    p.onclick=()=>{goalCell.classList.add("highlight");goalCell.onclick=()=>{drawDemoArrow("#practiceBoard",3,3,0,3);moveDemoPiece("#practiceBoard",p,0,3);goalCell.classList.remove("highlight");practiceComplete("✓ Goal: +1.")}}
+  }else{
+    addDemoPiece("#practiceBoard",5,3,"triangle","orange","+");const d=addDemoPiece("#practiceBoard",4,1,"square","cyan","+");d.style.outline="3px solid #ffd54d";const g=document.createElement("div");g.className="demo-goal";demoCell("#practiceBoard",0,3).appendChild(g);
+    d.onclick=()=>{const target=demoCell("#practiceBoard",2,3);target.classList.add("highlight");target.onclick=()=>{moveDemoPiece("#practiceBoard",d,2,3);target.classList.remove("highlight");practiceComplete("✓ Scoring route blocked.")}};
+  }
+}
+document.getElementById("practiceNextButton").onclick=()=>{if(practiceStep<practiceSteps.length-1){practiceStep++;renderPractice()}else{document.getElementById("practiceOverlay").classList.remove("show");showScreen("screen-menu")}};
+
+function updateProfileUI(){
+  document.getElementById("profileRating").textContent=profile.rating;document.getElementById("profileWins").textContent=profile.wins;document.getElementById("profileLosses").textContent=profile.losses;document.getElementById("profileGames").textContent=profile.games;document.getElementById("profileGoals").textContent=profile.goals;document.getElementById("profilePossessions").textContent=profile.takes;
+  const lg=document.getElementById("leaderGoals"),ls=document.getElementById("leaderSecondary");
+  if(lg)lg.textContent=profile.goals;if(ls)ls.textContent=profile.secondary||0;
+  document.getElementById("leaderWins").textContent=profile.wins;document.getElementById("leaderLosses").textContent=profile.losses;
+}
+
+updateProfileUI();
+
+// Restore a saved Manager Journey and cosmetic progression, if one exists.
+loadManagerJourney();
+refreshThemeUnlocks();
+
+</script>
+</body>
+</html>
