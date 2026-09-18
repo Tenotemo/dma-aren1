@@ -1438,7 +1438,7 @@ const SUPABASE_PUBLISHABLE_KEY="sb_publishable_BALeeEPCjnDmk349b8y-1Q_EJC7dQCo";
 const dmaSupabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let dmaSession=null,dmaOnlineProfile=null,dmaOnlineStats=null,dmaOnlineMatch=null,dmaRoomPoll=null;
 let dmaQuickPoll=null,dmaMatchChannel=null,dmaHeartbeat=null,dmaOnlineRole=null,dmaOnlineTeam=null;
-let dmaOnlineSubmitting=false,dmaApplyingRemote=false,dmaOnlineFormationSubmitted=false,dmaStartingOnlineMatch=false;
+let dmaOnlineSubmitting=false,dmaApplyingRemote=false,dmaOnlineFormationSubmitted=false,dmaStartingOnlineMatch=false,dmaSyncInFlight=false;
 
 const ROWS=12,COLS=9,GAME_DURATION=300,HALF_TIME_REMAINING=150,TURN_DURATION=30,ACTIONS_PER_TURN=3;
 const HUMAN_TEAM="cyan",AI_TEAM="orange",AI_DELAY=700;
@@ -3316,6 +3316,10 @@ function performNextAIAction(serial){
 function startTimer(){
   if(gameInterval)clearInterval(gameInterval);
   gameInterval=setInterval(()=>{
+    if(gameMode==="online"){
+      updateOnlineClocks();
+      return;
+    }
     if(!gameStarted||paused||gameOver||halftimeActive)return;gameTimeRemaining--;turnTimeRemaining--;
     if(gameTimeRemaining<=HALF_TIME_REMAINING&&!halftimeTriggered){gameTimeRemaining=HALF_TIME_REMAINING;triggerHalfTime();return}
     if(gameTimeRemaining<=0){gameTimeRemaining=0;finishGame();return}
@@ -3328,6 +3332,10 @@ function triggerHalfTime(){
   const hs=document.getElementById("halfTimeSecondary");if(hs)hs.textContent=`Secondary: ${secondaryScores.cyan} - ${secondaryScores.orange}`;document.getElementById("halfTimeOverlay").classList.add("show");updateInterface();
 }
 function startSecondHalf(){
+  if(gameMode==="online"){
+    document.getElementById("halfTimeOverlay").classList.remove("show");
+    return;
+  }
   document.getElementById("halfTimeOverlay").classList.remove("show");setupPiecesFromFormations();pieces.forEach(p=>p.possession=false);
   const starter=pieces.find(p=>p.team==="orange"&&p.role==="midfield")||pieces.find(p=>p.team==="orange");starter.possession=true;
   currentTeam="orange";halftimeActive=false;paused=false;startNewTurn();
@@ -3335,10 +3343,16 @@ function startSecondHalf(){
 function finishGame(){
   document.body.classList.remove("manager-journey-match");
   gameOver=true;paused=true;turnSerial++;if(gameInterval)clearInterval(gameInterval);
-  profile.games++;profile.takes+=matchStats.cyanTakes;profile.secondary=(profile.secondary||0)+secondaryScores.cyan;
-  if(scores.cyan>scores.orange){profile.wins++;profile.rating+=15}else if(scores.cyan<scores.orange){profile.losses++;profile.rating=Math.max(0,profile.rating-12)}
+  if(gameMode!=="online"){
+    profile.games++;profile.takes+=matchStats.cyanTakes;profile.secondary=(profile.secondary||0)+secondaryScores.cyan;
+    if(scores.cyan>scores.orange){profile.wins++;profile.rating+=15}else if(scores.cyan<scores.orange){profile.losses++;profile.rating=Math.max(0,profile.rating-12)}
+  }
 
   let cyanName="CYAN",orangeName="ORANGE";
+  if(gameMode==="online"){
+    cyanName=(document.getElementById("cyanTeamName")?.textContent||"CYAN").replace("●","").trim();
+    orangeName=(document.getElementById("orangeTeamName")?.textContent||"ORANGE").replace("●","").trim();
+  }
   const wasManagerMatch=managerJourney&&managerJourney.awaitingUserMatch&&managerJourney.currentFixture;
   if(wasManagerMatch){
     const f=managerJourney.currentFixture;
@@ -3365,6 +3379,11 @@ function finishGame(){
   if(manager)manager.style.display=wasManagerMatch?"grid":"none";
 
   showScreen("screen-results");
+  if(gameMode==="online"){
+    if(dmaHeartbeat){clearInterval(dmaHeartbeat);dmaHeartbeat=null}
+    void loadOnlinePlayerData();
+    void loadOnlineLeaderboard();
+  }
 }
 function togglePause(){if(!gameStarted||gameOver||halftimeActive)return;paused=!paused;document.getElementById("pauseButton").textContent=paused?"Resume":"Pause";if(!paused&&gameMode==="ai"&&currentTeam===AI_TEAM){const s=turnSerial;setTimeout(()=>performNextAIAction(s),350)}}
 function returnToMenuFromMatch(){if(gameInterval)clearInterval(gameInterval);gameStarted=false;paused=false;gameOver=false;showScreen("screen-menu")}
@@ -3372,7 +3391,7 @@ function showPassButton(){document.getElementById("passButton").style.display="b
 function showTakeButton(){document.getElementById("takeButton").style.display="block";document.getElementById("passButton").style.display="none"}
 function clearPendingActions(){pendingPassReceiver=null;pendingTakePiece=null;document.getElementById("passButton").style.display="none";document.getElementById("takeButton").style.display="none"}
 function showMessage(t,type=""){const e=document.getElementById("message");e.textContent=t;e.className=type}
-function formatTime(s){return`${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`}
+function formatTime(s){const safe=Math.max(0,Math.floor(Number(s)||0));return`${Math.floor(safe/60)}:${String(safe%60).padStart(2,"0")}`}
 function updateInterface(){
   const manualEndBtn=document.getElementById("endPhaseBtn");
   if(manualEndBtn){
@@ -3398,7 +3417,9 @@ function updateInterface(){
   const cs=document.getElementById("cyanSecondaryScore"),os=document.getElementById("orangeSecondaryScore");
   if(cs)cs.textContent=secondaryScores.cyan;if(os)os.textContent=secondaryScores.orange;
   document.getElementById("gameTimer").textContent=formatTime(gameTimeRemaining);document.getElementById("turnTimer").textContent=formatTime(turnTimeRemaining);
-  document.getElementById("halfLabel").textContent=halftimeActive?"HALF-TIME":halftimeTriggered?"SECOND HALF":"FIRST HALF";
+  document.getElementById("halfLabel").textContent=gameMode==="online"
+    ?(Number(dmaOnlineMatch?.match_half)===2?"SECOND HALF":"FIRST HALF")
+    :halftimeActive?"HALF-TIME":halftimeTriggered?"SECOND HALF":"FIRST HALF";
   document.getElementById("turnLabel").textContent=gameMode==="local"
     ?`${currentTeam.toUpperCase()} TURN`
     :gameMode==="online"
@@ -3886,7 +3907,15 @@ function subscribeToOnlineMatch(){
   dmaMatchChannel=dmaSupabase.channel("dma-match-"+dmaOnlineMatch.id)
     .on("postgres_changes",{
       event:"UPDATE",schema:"public",table:"matches",filter:"id=eq."+dmaOnlineMatch.id
-    },payload=>applyOnlineMatchUpdate(payload.new))
+    },payload=>{
+      const incoming=payload.new;
+      const meaningfulChange=
+        Number(incoming.state_version)!==Number(dmaOnlineMatch?.state_version)||
+        incoming.status!==dmaOnlineMatch?.status||
+        Number(incoming.match_half)!==Number(dmaOnlineMatch?.match_half)||
+        incoming.current_turn!==dmaOnlineMatch?.current_turn;
+      if(meaningfulChange)applyOnlineMatchUpdate(incoming);
+    })
     .subscribe();
 }
 
@@ -3921,6 +3950,8 @@ function serialiseOnlineState(){
   return {
     host_formation:dmaOnlineMatch?.game_state?.host_formation||null,
     guest_formation:dmaOnlineMatch?.game_state?.guest_formation||null,
+    match_half:Number(dmaOnlineMatch?.match_half)||1,
+    half_reset_applied:Number(dmaOnlineMatch?.match_half)===2,
     pieces:pieces.map(p=>({
       id:p.id,team:p.team,role:p.role,movement:p.movement,row:p.row,col:p.col,
       possession:!!p.possession,goalBlocker:!!p.goalBlocker,
@@ -3954,10 +3985,45 @@ async function startOnlineBoard(match){
   await loadOnlinePlayerNames();
   applyOnlineMatchUpdate(match);
   if(dmaHeartbeat)clearInterval(dmaHeartbeat);
-  dmaHeartbeat=setInterval(()=>{
-    if(dmaOnlineMatch&&dmaSession)dmaSupabase.rpc("touch_online_match",{p_match_id:dmaOnlineMatch.id});
-  },15000);
+  dmaHeartbeat=setInterval(()=>{void syncOnlineMatch()},2000);
+  void syncOnlineMatch(true);
   dmaStartingOnlineMatch=false;
+}
+
+function updateOnlineClocks(){
+  if(gameMode!=="online"||!dmaOnlineMatch||!gameStarted||gameOver)return;
+  const now=Date.now();
+  const matchStart=Date.parse(dmaOnlineMatch.started_at||"");
+  const turnStart=Date.parse(dmaOnlineMatch.turn_started_at||"");
+  if(Number.isFinite(matchStart))gameTimeRemaining=Math.max(0,GAME_DURATION-Math.floor((now-matchStart)/1000));
+  if(Number.isFinite(turnStart))turnTimeRemaining=Math.max(0,TURN_DURATION-Math.floor((now-turnStart)/1000));
+  updateInterface();
+}
+
+async function syncOnlineMatch(force=false){
+  if(dmaSyncInFlight||!dmaOnlineMatch||!dmaSession||dmaOnlineMatch.status!=="active")return;
+  dmaSyncInFlight=true;
+  const knownVersion=Number(dmaOnlineMatch.state_version)||0;
+  const knownStatus=dmaOnlineMatch.status;
+  const knownHalf=Number(dmaOnlineMatch.match_half)||1;
+  const knownTurn=dmaOnlineMatch.current_turn;
+  const {data,error}=await dmaSupabase.rpc("sync_online_match",{p_match_id:dmaOnlineMatch.id});
+  dmaSyncInFlight=false;
+  if(error){if(force)showMessage(error.message,"error");return}
+  const latest=rpcRow(data);
+  if(!latest)return;
+  const changed=force||Number(latest.state_version)!==knownVersion||latest.status!==knownStatus||Number(latest.match_half)!==knownHalf||latest.current_turn!==knownTurn;
+  if(changed)applyOnlineMatchUpdate(latest);
+  else dmaOnlineMatch={...dmaOnlineMatch,started_at:latest.started_at,turn_started_at:latest.turn_started_at,last_activity_at:latest.last_activity_at};
+  updateOnlineClocks();
+}
+
+function resetOnlineSecondHalf(){
+  setupPiecesFromFormations();
+  pieces.forEach(p=>p.possession=false);
+  const starter=pieces.find(p=>p.team==="orange"&&p.role==="midfield")||pieces.find(p=>p.team==="orange");
+  if(starter)starter.possession=true;
+  halftimeTriggered=true;halftimeActive=false;paused=false;roundResetPending=false;
 }
 
 async function loadOnlinePlayerNames(){
@@ -3975,6 +4041,7 @@ async function loadOnlinePlayerNames(){
 function applyOnlineMatchUpdate(match){
   if(!match||!dmaSession)return;
   const previousTurn=dmaOnlineMatch?.current_turn;
+  const previousHalf=Number(dmaOnlineMatch?.match_half)||1;
   dmaOnlineMatch=match;
   dmaOnlineRole=dmaSession.user.id===match.host_id?"host":"guest";
   dmaOnlineTeam=dmaOnlineRole==="host"?"cyan":"orange";
@@ -3986,14 +4053,24 @@ function applyOnlineMatchUpdate(match){
   }
   if(gameMode!=="online"||!gameStarted)return;
   const turnChanged=!!previousTurn&&previousTurn!==match.current_turn;
-  hydrateOnlineState(match.game_state,turnChanged);
   scores={cyan:Number(match.host_goals)||0,orange:Number(match.guest_goals)||0};
   secondaryScores={cyan:Number(match.host_secondary_points)||0,orange:Number(match.guest_secondary_points)||0};
+  if(match.status==="completed"){
+    dmaOnlineSubmitting=false;
+    finishGame();
+    return;
+  }
+  const requiresHalfReset=Number(match.match_half)===2&&match.game_state?.half_reset_applied!==true;
+  if(requiresHalfReset)resetOnlineSecondHalf();
+  else hydrateOnlineState(match.game_state,turnChanged);
   currentTeam=match.current_turn===match.host_id?"cyan":"orange";
   actionsRemaining=Number(match.actions_remaining)||0;
-  if(turnChanged)turnTimeRemaining=TURN_DURATION;
+  halftimeTriggered=Number(match.match_half)===2;
+  halftimeActive=false;
+  if(turnChanged||Number(match.match_half)!==previousHalf)turnTimeRemaining=TURN_DURATION;
   dmaOnlineSubmitting=false;
   selectedPiece=null;clearPendingActions();
+  updateOnlineClocks();
   render();
   showMessage(onlineCanAct()?"YOUR TURN":"Waiting for opponent…",onlineCanAct()?"success":"ai");
 }
@@ -4013,7 +4090,7 @@ async function submitOnlineAction(moveType,moveData){
   if(error){
     dmaOnlineSubmitting=false;
     showMessage(error.message,"error");
-    await refreshOnlineRoom();
+    await syncOnlineMatch(true);
     return false;
   }
   applyOnlineMatchUpdate(rpcRow(data));
