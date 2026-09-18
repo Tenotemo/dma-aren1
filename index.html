@@ -181,6 +181,9 @@ th{color:var(--gold)}
 .room-code{font-size:25px;font-weight:900;letter-spacing:2px;color:var(--gold);margin:8px 0}
 .account-badge{margin:0 0 12px;padding:10px 12px;border:1px solid #2a3a54;border-radius:12px;background:#0a1324;color:#b9c6d9}
 .account-badge strong{color:#fff}
+.quick-search-spinner{width:38px;height:38px;margin:8px auto 12px;border:4px solid #253653;border-top-color:var(--cyan);border-radius:50%;animation:dma-spin .8s linear infinite}
+@keyframes dma-spin{to{transform:rotate(360deg)}}
+.online-waiting{padding:10px;border:1px solid #38506f;border-radius:11px;background:#091426;color:#bed0e8;text-align:center;margin-top:7px}
 .match-result-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center}
 .result-score{font-size:38px;font-weight:bold;color:var(--gold)}
 
@@ -1123,9 +1126,15 @@ body{
     <div id="onlineAccountBadge" class="account-badge">Sign in from Profile to use online multiplayer.</div>
     <div class="menu-grid">
       <button class="menu-btn primary" onclick="startFormationBuilder('local')">Play on This Device</button>
-      <button class="menu-btn" disabled>Quick Match — Coming next</button>
+      <button id="quickMatchBtn" class="menu-btn" onclick="startQuickMatch()">Quick Match Online</button>
       <button id="createOnlineMatchBtn" class="menu-btn" onclick="createOnlineMatch()">Create Private Game</button>
       <button id="showJoinOnlineBtn" class="menu-btn" onclick="focusJoinRoom()">Join Private Game</button>
+    </div>
+    <div id="quickMatchPanel" class="online-panel" style="display:none;margin-top:12px;text-align:center">
+      <h3>Finding an Opponent</h3>
+      <div class="quick-search-spinner" aria-hidden="true"></div>
+      <div id="quickMatchStatus" class="online-status">Searching for another player…</div>
+      <button class="small-btn red" onclick="cancelQuickMatch()">Cancel Search</button>
     </div>
     <div class="online-grid">
       <div class="online-panel">
@@ -1428,6 +1437,8 @@ const SUPABASE_URL="https://ibudikptfylzzlcysxmd.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY="sb_publishable_BALeeEPCjnDmk349b8y-1Q_EJC7dQCo";
 const dmaSupabase=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let dmaSession=null,dmaOnlineProfile=null,dmaOnlineStats=null,dmaOnlineMatch=null,dmaRoomPoll=null;
+let dmaQuickPoll=null,dmaMatchChannel=null,dmaHeartbeat=null,dmaOnlineRole=null,dmaOnlineTeam=null;
+let dmaOnlineSubmitting=false,dmaApplyingRemote=false,dmaOnlineFormationSubmitted=false,dmaStartingOnlineMatch=false;
 
 const ROWS=12,COLS=9,GAME_DURATION=300,HALF_TIME_REMAINING=150,TURN_DURATION=30,ACTIONS_PER_TURN=3;
 const HUMAN_TEAM="cyan",AI_TEAM="orange",AI_DELAY=700;
@@ -2195,6 +2206,7 @@ function passesGoalRestrictions(piece,tr,tc){
 }
 function isLegalMove(piece,tr,tc){
   if(gameOver||paused||halftimeActive||roundResetPending||actionsRemaining<=0||piece.team!==currentTeam)return false;
+  if(gameMode==="online"&&!onlineCanAct())return false;
   if(tr<0||tr>=ROWS||tc<0||tc>=COLS||getPiece(tr,tc))return false;
   return movementDirectionLegal(piece,tr,tc)&&passesRoleRestrictions(piece,tr)&&passesGoalRestrictions(piece,tr,tc)&&isMovementPathClear(piece,tr,tc);
 }
@@ -2226,7 +2238,11 @@ function executeMove(piece,row,col,{byAI=false}={}){
   if(piece.role==="attack"&&isAttackingHalf(piece.team,row))piece.enteredAttackHalf=true;
   useAction();selectedPiece=null;clearPendingActions();render();
   if(byAI)showBoardArrow(fr,fc,row,col,"move","MOVE");
-  if(scoreMove){scoreGoal(piece.team);return}
+  if(scoreMove){scoreGoal(piece.team,{piece_id:piece.id,from:{row:fr,col:fc},to:{row,col}});return}
+  if(gameMode==="online"&&!dmaApplyingRemote){
+    void submitOnlineAction("piece_move",{piece_id:piece.id,from:{row:fr,col:fc},to:{row,col}});
+    return;
+  }
   checkAutomaticTurnEnd();
 }
 function isLegalPass(from,to){
@@ -2246,6 +2262,9 @@ function performPass(from,to,{byAI=false}={}){
   selectedPiece=null;clearPendingActions();render();
   if(byAI)showBoardArrow(fr,fc,tr,tc,"pass","PASS");
   showMessage(point?`${to.team==="cyan"?"Cyan":"Orange"} pass: +1 secondary`:"Possession passed.",byAI?"ai":point?"success":"");
+  if(gameMode==="online"&&!dmaApplyingRemote){
+    void submitOnlineAction(point?"qualifying_pass":"pass",{from_piece_id:from.id,to_piece_id:to.id});
+  }
   return true;
 }
 function canTakeAdjacent(piece,pos){
@@ -2271,6 +2290,7 @@ function performTakePossession(piece,{byAI=false}={}){
 }
 function handleCellClick(row,col){
   if(!gameStarted||paused||gameOver||halftimeActive||roundResetPending)return;
+  if(gameMode==="online"&&!onlineCanAct()){showMessage("Waiting for your opponent…","ai");return}
   if(gameMode==="ai"&&currentTeam===AI_TEAM){showMessage("Opponent is playing...","ai");return}
   clearPendingActions();const clicked=getPiece(row,col);
   if(clicked){
@@ -2282,8 +2302,15 @@ function handleCellClick(row,col){
   }
   if(selectedPiece&&isLegalMove(selectedPiece,row,col))executeMove(selectedPiece,row,col,{byAI:false});
 }
-function confirmPassPossession(){const p=getPossessionPiece();if(p&&pendingPassReceiver&&performPass(p,pendingPassReceiver,{byAI:false}))checkAutomaticTurnEnd()}
-function confirmTakePossession(){if(pendingTakePiece&&performTakePossession(pendingTakePiece,{byAI:false}))checkAutomaticTurnEnd()}
+function confirmPassPossession(){const p=getPossessionPiece();if(p&&pendingPassReceiver&&performPass(p,pendingPassReceiver,{byAI:false})&&gameMode!=="online")checkAutomaticTurnEnd()}
+function confirmTakePossession(){
+  const target=pendingTakePiece;
+  const old=getPossessionPiece();
+  if(target&&performTakePossession(target,{byAI:false})){
+    if(gameMode==="online"&&!dmaApplyingRemote){void submitOnlineAction("take_possession",{from_piece_id:old?.id,to_piece_id:target.id})}
+    else checkAutomaticTurnEnd();
+  }
+}
 function highlightLegalMoves(piece){getLegalMoves(piece).forEach(m=>cells[m.row][m.col].classList.add("legal"))}
 function highlightPassTargets(){const p=getPossessionPiece();if(!p||p.team!==currentTeam)return;pieces.forEach(x=>{if(x.team===currentTeam&&x.id!==p.id&&isLegalPass(p,x))cells[x.row][x.col].classList.add("pass-target")})}
 function highlightTakeTargets(){const p=getPossessionPiece();if(!p||p.team===currentTeam)return;pieces.forEach(x=>{if(x.team===currentTeam&&canTakePossession(x))cells[x.row][x.col].classList.add("take-target")})}
@@ -2305,6 +2332,10 @@ function playerEndTurn(){
 
   clearPendingActions();
   selectedPiece=null;
+  if(gameMode==="online"){
+    void submitOnlineAction("end_turn",{});
+    return;
+  }
   endTurn();
 }
 
@@ -2316,6 +2347,13 @@ function exitCurrentMatch(){
   aiPostTakeActive=false;aiPlannedPassTargetId=null;selectedPiece=null;clearPendingActions();
   const halfOverlay=document.getElementById("halfTimeOverlay");
   if(halfOverlay)halfOverlay.classList.remove("show");
+
+  if(gameMode==="online"){
+    if(dmaHeartbeat){clearInterval(dmaHeartbeat);dmaHeartbeat=null}
+    if(dmaMatchChannel){dmaSupabase.removeChannel(dmaMatchChannel);dmaMatchChannel=null}
+    dmaOnlineMatch=null;dmaOnlineRole=null;dmaOnlineTeam=null;
+    dmaOnlineFormationSubmitted=false;dmaOnlineSubmitting=false;dmaStartingOnlineMatch=false;
+  }
 
   // Abandoning a Manager Journey fixture does not simulate the week.
   if(managerJourney&&managerJourney.awaitingUserMatch){
@@ -2329,12 +2367,33 @@ function exitCurrentMatch(){
   showScreen("screen-menu");
 }
 
-function endTurn(){if(!gameStarted||gameOver||halftimeActive||roundResetPending)return;currentTeam=opponentOf(currentTeam);startNewTurn()}
-function checkAutomaticTurnEnd(){if(actionsRemaining<=0){const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&actionsRemaining<=0&&!gameOver&&!halftimeActive)endTurn()},250)}}
+function endTurn(){
+  if(!gameStarted||gameOver||halftimeActive||roundResetPending)return;
+  if(gameMode==="online"){
+    if(onlineCanAct())void submitOnlineAction("end_turn",{reason:"timer_or_manual"});
+    return;
+  }
+  currentTeam=opponentOf(currentTeam);startNewTurn();
+}
+function checkAutomaticTurnEnd(){
+  if(gameMode==="online")return;
+  if(actionsRemaining<=0){const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&actionsRemaining<=0&&!gameOver&&!halftimeActive)endTurn()},250)}
+}
 
-function scoreGoal(team){
+function scoreGoal(team,moveData=null){
   scores[team]+=1;if(team==="cyan"){matchStats.cyanGoals++;profile.goals++}else matchStats.orangeGoals++;
   roundResetPending=true;showMessage(`${team==="cyan"?"Cyan":"Orange"} GOAL! +1 goal`,team==="orange"&&gameMode==="ai"?"ai":"success");render();
+  if(gameMode==="online"&&!dmaApplyingRemote){
+    setTimeout(()=>{
+      if(gameOver||halftimeActive)return;
+      roundResetPending=false;setupPiecesFromFormations();pieces.forEach(p=>p.possession=false);
+      const nextTeam=opponentOf(team),starter=pieces.find(p=>p.team===nextTeam&&p.role==="midfield")||pieces.find(p=>p.team===nextTeam);
+      if(starter)starter.possession=true;
+      currentTeam=nextTeam;actionsRemaining=ACTIONS_PER_TURN;turnTimeRemaining=TURN_DURATION;resetTurnFlags();render();
+      void submitOnlineAction("goal",moveData||{team});
+    },450);
+    return;
+  }
   const serial=turnSerial;setTimeout(()=>{if(serial===turnSerial&&!gameOver&&!halftimeActive)resetAfterGoal(team)},850);
 }
 function resetAfterGoal(scoringTeam){
@@ -3321,13 +3380,16 @@ function updateInterface(){
       !paused &&
       !halftimeActive &&
       !roundResetPending &&
-      !(gameMode==="ai"&&currentTeam===AI_TEAM);
+      !(gameMode==="ai"&&currentTeam===AI_TEAM) &&
+      (gameMode!=="online"||onlineCanAct());
     manualEndBtn.disabled=!humanCanEnd;
     manualEndBtn.textContent="END TURN";
   }
 
   const exitBtn=document.getElementById("exitMatchBtn");
   if(exitBtn)exitBtn.disabled=false;
+  const pauseBtn=document.getElementById("pauseButton");
+  if(pauseBtn){pauseBtn.disabled=gameMode==="online";pauseBtn.textContent=gameMode==="online"?"LIVE":"PAUSE"}
 
   if(!document.getElementById("cyanScore"))return;
   document.getElementById("cyanScore").textContent=scores.cyan;document.getElementById("orangeScore").textContent=scores.orange;
@@ -3335,11 +3397,15 @@ function updateInterface(){
   if(cs)cs.textContent=secondaryScores.cyan;if(os)os.textContent=secondaryScores.orange;
   document.getElementById("gameTimer").textContent=formatTime(gameTimeRemaining);document.getElementById("turnTimer").textContent=formatTime(turnTimeRemaining);
   document.getElementById("halfLabel").textContent=halftimeActive?"HALF-TIME":halftimeTriggered?"SECOND HALF":"FIRST HALF";
-  document.getElementById("turnLabel").textContent=gameMode==="local"?`${currentTeam.toUpperCase()} TURN`:currentTeam===HUMAN_TEAM?"YOUR TURN":"OPPONENT TURN";
+  document.getElementById("turnLabel").textContent=gameMode==="local"
+    ?`${currentTeam.toUpperCase()} TURN`
+    :gameMode==="online"
+      ?(onlineCanAct()?"YOUR TURN":"OPPONENT TURN")
+      :currentTeam===HUMAN_TEAM?"YOUR TURN":"OPPONENT TURN";
   document.getElementById("modeLabel").textContent=
     gameMode==="ai"&&currentTeam===AI_TEAM
       ?`${aiDifficulty==="hard"?"HARD":"BEGINNER"} AI • ${aiMode} MODE`
-      :"";
+      :gameMode==="online"?"ONLINE MATCH • "+(dmaOnlineRole||"").toUpperCase():"";
   [1,2,3].forEach((n,i)=>document.getElementById("action"+n).classList.toggle("active",i<actionsRemaining));
   document.getElementById("cyanCard").classList.toggle("active",currentTeam==="cyan");document.getElementById("orangeCard").classList.toggle("active",currentTeam==="orange");
   clearManagerJourneyHints();
@@ -3353,6 +3419,9 @@ function backFromFormation(){
     saveManagerJourney();
     showScreen("screen-manager");
     renderManagerJourney();
+  }else if(gameMode==="online"){
+    showScreen("screen-multiplayer");
+    renderOnlineRoom();
   }else{
     showScreen("screen-playmenu");
   }
@@ -3361,6 +3430,8 @@ function backFromFormation(){
 function startFormationBuilder(mode,difficulty=null){
   gameMode=mode;
   if(mode==="ai"&&difficulty)aiDifficulty=difficulty;
+  const startBtn=document.getElementById("startMatchFromFormation");
+  if(startBtn)startBtn.textContent="Start Match";
   formationPieces=SQUAD_POOL.map((p,i)=>({id:i+1,poolIndex:i,...p,row:null,col:null}));
   selectedFormationId=null;
   renderFormationBuilder();
@@ -3498,10 +3569,33 @@ document.getElementById("savedFormationSelect").addEventListener("change",functi
   });
   selectedFormationId=null;renderFormationBuilder();
 });
-function confirmFormationAndStart(){
+async function confirmFormationAndStart(){
   const selected=formationPieces.filter(p=>p.row!==null);
   if(selected.length!==10){
     document.getElementById("formationMessage").textContent="Select exactly 10 of the 12 pieces before starting.";
+    return;
+  }
+  if(gameMode==="online"){
+    if(!dmaOnlineMatch||!dmaSession){
+      document.getElementById("formationMessage").textContent="Online match connection is unavailable.";
+      return;
+    }
+    const btn=document.getElementById("startMatchFromFormation");
+    btn.disabled=true;btn.textContent="Submitting…";
+    const payload=selected.map(p=>({poolIndex:p.poolIndex,row:p.row,col:p.col}));
+    const {data,error}=await dmaSupabase.rpc("submit_online_formation",{
+      p_match_id:dmaOnlineMatch.id,p_formation:payload
+    });
+    if(error){
+      btn.disabled=false;btn.textContent="Submit Online Formation";
+      document.getElementById("formationMessage").textContent=error.message;
+      return;
+    }
+    dmaOnlineFormationSubmitted=true;
+    dmaOnlineMatch=rpcRow(data);
+    document.getElementById("formationMessage").innerHTML='<div class="online-waiting">Formation submitted. Waiting for your opponent…</div>';
+    btn.textContent="Formation Submitted";
+    applyOnlineMatchUpdate(dmaOnlineMatch);
     return;
   }
   savedPlayerFormation=selected.map(p=>({role:p.role,movement:p.movement,row:p.row,col:p.col}));
@@ -3663,6 +3757,8 @@ async function logoutOnlinePlayer(){
   if(error)return setOnlineStatus("onlineProfileStatus",error.message,"error");
   dmaOnlineMatch=null;
   stopRoomPolling();
+  if(dmaQuickPoll){clearInterval(dmaQuickPoll);dmaQuickPoll=null}
+  if(dmaMatchChannel){dmaSupabase.removeChannel(dmaMatchChannel);dmaMatchChannel=null}
   showScreen("screen-profile");
 }
 
@@ -3717,11 +3813,206 @@ function refreshOnlineMultiplayerUI(){
   const badge=document.getElementById("onlineAccountBadge");
   const createBtn=document.getElementById("createOnlineMatchBtn");
   const joinBtn=document.getElementById("showJoinOnlineBtn");
-  if(!badge||!createBtn||!joinBtn)return;
+  const quickBtn=document.getElementById("quickMatchBtn");
+  if(!badge||!createBtn||!joinBtn||!quickBtn)return;
   const enabled=!!dmaSession;
-  createBtn.disabled=!enabled;joinBtn.disabled=!enabled;
+  createBtn.disabled=!enabled;joinBtn.disabled=!enabled;quickBtn.disabled=!enabled||!!dmaQuickPoll;
   badge.innerHTML=enabled?"Online as <strong>"+escapeOnlineHtml(onlinePlayerName())+"</strong>":"Sign in from Profile to use online multiplayer.";
   if(dmaOnlineMatch)renderOnlineRoom();
+}
+
+function rpcRow(data){return Array.isArray(data)?data[0]:data}
+
+async function startQuickMatch(){
+  if(!dmaSession)return setOnlineStatus("onlineMatchStatus","Sign in from Profile first.","error");
+  if(dmaQuickPoll)return;
+  document.getElementById("quickMatchPanel").style.display="block";
+  setOnlineStatus("quickMatchStatus","Searching for another player…");
+  refreshOnlineMultiplayerUI();
+  await checkQuickMatch();
+  if(!dmaOnlineMatch)dmaQuickPoll=setInterval(checkQuickMatch,3000);
+}
+
+async function checkQuickMatch(){
+  if(!dmaSession||dmaOnlineMatch)return;
+  const {data,error}=await dmaSupabase.rpc("request_quick_match");
+  if(error){
+    setOnlineStatus("quickMatchStatus",error.message,"error");
+    return;
+  }
+  const result=rpcRow(data);
+  if(result?.queue_status==="matched"&&result.online_match_id){
+    const matchResult=await dmaSupabase.from("matches").select("*").eq("id",result.online_match_id).single();
+    if(matchResult.error)return setOnlineStatus("quickMatchStatus",matchResult.error.message,"error");
+    setOnlineStatus("quickMatchStatus","Opponent found! Opening formation builder…","success");
+    await attachOnlineMatch(matchResult.data);
+  }else{
+    setOnlineStatus("quickMatchStatus","Searching for another player… Keep this page open.");
+  }
+}
+
+async function cancelQuickMatch(){
+  if(dmaQuickPoll){clearInterval(dmaQuickPoll);dmaQuickPoll=null}
+  if(dmaSession)await dmaSupabase.rpc("cancel_quick_match");
+  const panel=document.getElementById("quickMatchPanel");
+  if(panel)panel.style.display="none";
+  setOnlineStatus("quickMatchStatus","");
+  refreshOnlineMultiplayerUI();
+}
+
+async function attachOnlineMatch(match){
+  if(!match)return;
+  dmaOnlineMatch=match;
+  dmaOnlineRole=dmaSession?.user?.id===match.host_id?"host":"guest";
+  dmaOnlineTeam=dmaOnlineRole==="host"?"cyan":"orange";
+  dmaOnlineFormationSubmitted=dmaOnlineRole==="host"?!!match.host_ready:!!match.guest_ready;
+  if(dmaQuickPoll){clearInterval(dmaQuickPoll);dmaQuickPoll=null}
+  const panel=document.getElementById("quickMatchPanel");
+  if(panel)panel.style.display="none";
+  stopRoomPolling();
+  subscribeToOnlineMatch();
+  renderOnlineRoom();
+  if(match.status==="active"){
+    if(match.host_ready&&match.guest_ready)await startOnlineBoard(match);
+    else enterOnlineFormation();
+  }
+}
+
+function subscribeToOnlineMatch(){
+  if(dmaMatchChannel){dmaSupabase.removeChannel(dmaMatchChannel);dmaMatchChannel=null}
+  if(!dmaOnlineMatch)return;
+  dmaMatchChannel=dmaSupabase.channel("dma-match-"+dmaOnlineMatch.id)
+    .on("postgres_changes",{
+      event:"UPDATE",schema:"public",table:"matches",filter:"id=eq."+dmaOnlineMatch.id
+    },payload=>applyOnlineMatchUpdate(payload.new))
+    .subscribe();
+}
+
+function enterOnlineFormation(){
+  if(!dmaOnlineMatch||dmaOnlineFormationSubmitted)return;
+  if(gameMode==="online"&&(document.getElementById("screen-formation").classList.contains("active")||gameStarted))return;
+  gameMode="online";
+  formationPieces=SQUAD_POOL.map((p,i)=>({id:i+1,poolIndex:i,...p,row:null,col:null}));
+  selectedFormationId=null;
+  renderFormationBuilder();
+  document.getElementById("formationMessage").textContent="Online match found. Select 10 pieces, then submit your formation.";
+  document.getElementById("startMatchFromFormation").textContent="Submit Online Formation";
+  showScreen("screen-formation");
+}
+
+function formationForOnlineTeam(items,team){
+  return (items||[]).map(item=>{
+    const template=SQUAD_POOL[Number(item.poolIndex)]||SQUAD_POOL[0];
+    const square=team==="orange"?mirrorFormationSquare("orange",{row:Number(item.row),col:Number(item.col)}):{row:Number(item.row),col:Number(item.col)};
+    return {role:template.role,movement:template.movement,row:square.row,col:square.col};
+  });
+}
+
+function onlineCanAct(){
+  return !!(gameMode==="online"&&dmaSession&&dmaOnlineMatch&&dmaOnlineMatch.current_turn===dmaSession.user.id&&!dmaOnlineSubmitting);
+}
+
+function serialiseOnlineState(){
+  return {
+    host_formation:dmaOnlineMatch?.game_state?.host_formation||null,
+    guest_formation:dmaOnlineMatch?.game_state?.guest_formation||null,
+    pieces:pieces.map(p=>({
+      id:p.id,team:p.team,role:p.role,movement:p.movement,row:p.row,col:p.col,
+      possession:!!p.possession,goalBlocker:!!p.goalBlocker,
+      enteredAttackHalf:!!p.enteredAttackHalf,movedThisTurn:!!p.movedThisTurn,
+      movedWithPossessionThisTurn:!!p.movedWithPossessionThisTurn
+    })),
+    gameTimeRemaining,turnTimeRemaining,halftimeTriggered,halftimeActive
+  };
+}
+
+function hydrateOnlineState(state,turnChanged=false){
+  if(!state||!Array.isArray(state.pieces)||state.pieces.length!==20)return;
+  pieces=state.pieces.map(p=>({...p}));
+  nextPieceId=Math.max(...pieces.map(p=>Number(p.id)||0),0)+1;
+  if(turnChanged)resetTurnFlags();
+  if(Number.isFinite(state.gameTimeRemaining))gameTimeRemaining=state.gameTimeRemaining;
+  if(Number.isFinite(state.turnTimeRemaining))turnTimeRemaining=state.turnTimeRemaining;
+  halftimeTriggered=!!state.halftimeTriggered;
+  halftimeActive=!!state.halftimeActive;
+}
+
+async function startOnlineBoard(match){
+  if(dmaStartingOnlineMatch||gameStarted)return;
+  const gs=match?.game_state||{};
+  if(!Array.isArray(gs.host_formation)||!Array.isArray(gs.guest_formation))return;
+  dmaStartingOnlineMatch=true;
+  savedPlayerFormation=formationForOnlineTeam(gs.host_formation,"cyan");
+  savedOrangeFormation=formationForOnlineTeam(gs.guest_formation,"orange");
+  gameMode="online";
+  startMatch();
+  await loadOnlinePlayerNames();
+  applyOnlineMatchUpdate(match);
+  if(dmaHeartbeat)clearInterval(dmaHeartbeat);
+  dmaHeartbeat=setInterval(()=>{
+    if(dmaOnlineMatch&&dmaSession)dmaSupabase.rpc("touch_online_match",{p_match_id:dmaOnlineMatch.id});
+  },15000);
+  dmaStartingOnlineMatch=false;
+}
+
+async function loadOnlinePlayerNames(){
+  if(!dmaOnlineMatch)return;
+  const ids=[dmaOnlineMatch.host_id,dmaOnlineMatch.guest_id].filter(Boolean);
+  const {data}=await dmaSupabase.from("profiles").select("id,username,display_name").in("id",ids);
+  const host=data?.find(p=>p.id===dmaOnlineMatch.host_id);
+  const guest=data?.find(p=>p.id===dmaOnlineMatch.guest_id);
+  const hostName=host?.username||host?.display_name||"Player 1";
+  const guestName=guest?.username||guest?.display_name||"Player 2";
+  document.getElementById("cyanTeamName").textContent="● "+hostName;
+  document.getElementById("orangeTeamName").textContent=guestName+" ●";
+}
+
+function applyOnlineMatchUpdate(match){
+  if(!match||!dmaSession)return;
+  const previousTurn=dmaOnlineMatch?.current_turn;
+  dmaOnlineMatch=match;
+  dmaOnlineRole=dmaSession.user.id===match.host_id?"host":"guest";
+  dmaOnlineTeam=dmaOnlineRole==="host"?"cyan":"orange";
+  if(match.host_ready&&match.guest_ready){
+    if(!gameStarted&&!dmaStartingOnlineMatch){
+      void startOnlineBoard(match);
+      return;
+    }
+  }
+  if(gameMode!=="online"||!gameStarted)return;
+  const turnChanged=!!previousTurn&&previousTurn!==match.current_turn;
+  hydrateOnlineState(match.game_state,turnChanged);
+  scores={cyan:Number(match.host_goals)||0,orange:Number(match.guest_goals)||0};
+  secondaryScores={cyan:Number(match.host_secondary_points)||0,orange:Number(match.guest_secondary_points)||0};
+  currentTeam=match.current_turn===match.host_id?"cyan":"orange";
+  actionsRemaining=Number(match.actions_remaining)||0;
+  if(turnChanged)turnTimeRemaining=TURN_DURATION;
+  dmaOnlineSubmitting=false;
+  selectedPiece=null;clearPendingActions();
+  render();
+  showMessage(onlineCanAct()?"YOUR TURN":"Waiting for opponent…",onlineCanAct()?"success":"ai");
+}
+
+async function submitOnlineAction(moveType,moveData){
+  if(!onlineCanAct()||!dmaOnlineMatch)return false;
+  dmaOnlineSubmitting=true;
+  updateInterface();
+  const expectedVersion=dmaOnlineMatch.state_version;
+  const {data,error}=await dmaSupabase.rpc("submit_online_action",{
+    p_match_id:dmaOnlineMatch.id,
+    p_expected_version:expectedVersion,
+    p_move_type:moveType,
+    p_move_data:moveData||{},
+    p_next_state:serialiseOnlineState()
+  });
+  if(error){
+    dmaOnlineSubmitting=false;
+    showMessage(error.message,"error");
+    await refreshOnlineRoom();
+    return false;
+  }
+  applyOnlineMatchUpdate(rpcRow(data));
+  return true;
 }
 
 async function createOnlineMatch(){
@@ -3729,7 +4020,7 @@ async function createOnlineMatch(){
   setOnlineStatus("onlineMatchStatus","Creating private room…");
   const {data,error}=await dmaSupabase.rpc("create_match");
   if(error)return setOnlineStatus("onlineMatchStatus",error.message,"error");
-  dmaOnlineMatch=Array.isArray(data)?data[0]:data;
+  dmaOnlineMatch=rpcRow(data);
   renderOnlineRoom();startRoomPolling();
   setOnlineStatus("onlineMatchStatus","Private room created.","success");
 }
@@ -3746,8 +4037,7 @@ async function joinOnlineMatch(){
   setOnlineStatus("onlineMatchStatus","Joining room…");
   const {data,error}=await dmaSupabase.rpc("join_match",{p_room_code:code});
   if(error)return setOnlineStatus("onlineMatchStatus",error.message,"error");
-  dmaOnlineMatch=Array.isArray(data)?data[0]:data;
-  renderOnlineRoom();startRoomPolling();
+  await attachOnlineMatch(rpcRow(data));
   setOnlineStatus("onlineMatchStatus","Room joined successfully.","success");
 }
 
@@ -3764,7 +4054,9 @@ async function refreshOnlineRoom(){
   if(!dmaOnlineMatch||!dmaSession)return;
   const {data,error}=await dmaSupabase.from("matches").select("*").eq("id",dmaOnlineMatch.id).single();
   if(error)return setOnlineStatus("onlineRoomState",error.message,"error");
+  const wasWaiting=dmaOnlineMatch.status==="waiting";
   dmaOnlineMatch=data;renderOnlineRoom();
+  if(wasWaiting&&data.status==="active")await attachOnlineMatch(data);
 }
 
 function startRoomPolling(){
@@ -3803,6 +4095,10 @@ async function initialiseOnlineDMA(){
   dmaSession=data.session;
   await loadOnlinePlayerData();
   loadOnlineLeaderboard();
+  if(dmaSession){
+    const {data:matches}=await dmaSupabase.from("matches").select("*").in("status",["waiting","active"]).order("created_at",{ascending:false}).limit(1);
+    if(matches?.[0])await attachOnlineMatch(matches[0]);
+  }
   dmaSupabase.auth.onAuthStateChange((_event,session)=>{
     dmaSession=session;
     setTimeout(loadOnlinePlayerData,0);
