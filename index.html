@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>DMA Arena</title>
 <style>
 *{box-sizing:border-box}
@@ -826,6 +826,161 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
 .secondary-score b{color:#f2cf64;font-size:11px}
 .secondary-result{font-size:12px;color:#aab7cb;margin:2px 0 8px}
 
+/* iPhone/mobile viewport, safe-area and compact-layout corrections */
+html{width:100%;height:100%;background:#050b1c}
+body{
+  width:100%;
+  height:100dvh;
+  min-height:100svh;
+  overscroll-behavior:none;
+}
+.app{
+  height:100dvh;
+  padding:
+    max(8px,env(safe-area-inset-top))
+    max(8px,env(safe-area-inset-right))
+    max(8px,env(safe-area-inset-bottom))
+    max(8px,env(safe-area-inset-left));
+}
+.screen{height:100%;max-height:100%}
+
+@media(max-width:700px){
+  .app{
+    padding:
+      max(10px,env(safe-area-inset-top))
+      max(6px,env(safe-area-inset-right))
+      max(8px,env(safe-area-inset-bottom))
+      max(6px,env(safe-area-inset-left));
+  }
+  .screen{height:100%;max-height:100%}
+  #screen-match.active,
+  #screen-formation.active{height:100%;max-height:100%}
+  .back-row{
+    min-height:42px;
+    margin-bottom:8px;
+    padding:0 2px;
+    flex:0 0 auto;
+  }
+  .back-row strong{
+    min-width:0;
+    font-size:clamp(16px,4.8vw,20px);
+    line-height:1.1;
+    text-align:right;
+  }
+  .back-row .small-btn{padding:9px 11px;font-size:14px;white-space:nowrap}
+
+  #screen-menu.active{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:clamp(10px,2dvh,18px);
+    overflow:hidden;
+  }
+  #screen-menu .title{margin:0}
+  #screen-menu .title h1{
+    font-size:clamp(32px,9.5vw,43px);
+    line-height:1;
+    letter-spacing:2px;
+  }
+  #screen-menu .card{width:100%;padding:12px;border-radius:16px}
+  #screen-menu .menu-grid{gap:8px}
+  #screen-menu .menu-btn{
+    min-height:clamp(58px,9dvh,72px);
+    padding:8px;
+    font-size:clamp(13px,3.7vw,16px);
+    line-height:1.18;
+  }
+  #screen-menu .menu-btn span{font-size:10px!important;line-height:1.2}
+
+  #screen-playmenu.active{
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+  #screen-playmenu .card{
+    max-height:none;
+    flex:1;
+    display:flex;
+    align-items:center;
+    padding:12px;
+  }
+  #screen-playmenu .menu-grid{width:100%;gap:10px}
+  #screen-playmenu .menu-btn{min-height:108px;padding:12px;font-size:16px}
+
+  #screen-rules .card,
+  #screen-leaderboard .card,
+  #screen-profile .card,
+  #screen-multiplayer .card{
+    max-height:calc(100% - 50px);
+  }
+
+  #screen-manager.active{
+    height:100%;
+    max-height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    display:block;
+    padding-bottom:max(8px,env(safe-area-inset-bottom));
+  }
+  #screen-manager .manager-shell{
+    display:flex;
+    flex:none;
+    min-height:auto;
+    flex-direction:column;
+    gap:8px;
+  }
+  #screen-manager .manager-panel{padding:10px;flex:none;min-height:0}
+  #screen-manager .manager-left{overflow:visible}
+  #screen-manager .manager-table-panel{
+    min-height:0;
+    overflow-x:auto;
+    overflow-y:visible;
+  }
+  #screen-manager .manager-table{min-width:650px;font-size:10px}
+  #screen-manager .manager-table th,
+  #screen-manager .manager-table td{padding:6px 3px;white-space:nowrap}
+  #screen-manager #managerWeekResults{display:none!important}
+  #screen-manager .manager-hero{padding:10px}
+  #screen-manager .manager-hero h2{font-size:20px}
+  #screen-manager .fixture-teams{font-size:14px;gap:5px}
+  #screen-manager .manager-actions .small-btn{padding:9px 7px;font-size:12px}
+
+  #screen-results.active{
+    display:block;
+    overflow-y:auto;
+    padding-bottom:max(6px,env(safe-area-inset-bottom));
+  }
+  #screen-results .card{
+    min-height:100%;
+    padding:14px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+  }
+  #screen-results .title h1{font-size:clamp(34px,10vw,48px)}
+  #screen-results .match-result-grid{
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    gap:8px;
+    align-items:center;
+  }
+  #screen-results .result-score{font-size:clamp(42px,13vw,58px);white-space:nowrap}
+  #screen-results .result-team{font-size:14px;text-align:center}
+  #screen-results .result-summary{grid-column:1/-1;text-align:center;margin:0}
+  #screen-results .result-explainer{grid-column:1/-1;margin:4px 0 0}
+  #screen-results .profile-grid{grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px!important}
+  #screen-results .stat{padding:9px 5px;font-size:12px}
+  #screen-results .stat b{font-size:24px}
+  #screen-results .controls{margin-top:10px!important}
+}
+
+@media(max-width:430px) and (max-height:740px){
+  #screen-menu.active{gap:8px}
+  #screen-menu .title h1{font-size:30px}
+  #screen-menu .menu-btn{min-height:50px;font-size:12px}
+  #screen-menu .menu-btn span{display:none!important}
+  #screen-playmenu .menu-btn{min-height:82px}
+}
+
 </style>
 </head>
 <body>
@@ -835,7 +990,6 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
 <section id="screen-menu" class="screen active">
   <div class="title">
     <h1>DMA ARENA</h1>
-    <p>Defence · Midfield · Attack</p>
   </div>
   <div class="card">
     <div class="menu-grid">
@@ -1201,9 +1355,11 @@ body.theme-galaxy #board .piece.attack.orange{border-bottom-color:#ff71bd;filter
   <div class="card">
     <div class="title"><h1>FULL-TIME</h1></div>
     <div class="match-result-grid">
-      <div style="text-align:center"><strong id="resultCyanName">CYAN</strong></div>
-      <div class="result-score" id="resultScore" style="text-align:center">0 - 0</div><div id="resultSecondaryScore" class="secondary-result" style="text-align:center">Secondary: 0 - 0</div><div class="notice" style="margin-top:5px">Goals determine the match result. Secondary Points are used as a ranking tiebreaker when goal records are level.</div>
-      <div style="text-align:center"><strong id="resultOrangeName">ORANGE</strong></div>
+      <div class="result-team"><strong id="resultCyanName">CYAN</strong></div>
+      <div class="result-score" id="resultScore" style="text-align:center">0 - 0</div>
+      <div class="result-team"><strong id="resultOrangeName">ORANGE</strong></div>
+      <div id="resultSecondaryScore" class="secondary-result result-summary">Secondary: 0 - 0</div>
+      <div class="notice result-explainer">Goals determine the match result. Secondary Points are used as a ranking tiebreaker when goal records are level.</div>
     </div>
     <div class="profile-grid" style="margin-top:15px">
       <div class="stat"><b id="resultGoals">0</b>Your Goals</div>
