@@ -1042,7 +1042,7 @@ body{
       <div class="manager-hero">
         <div style="font-size:10px;color:#7fd8ee;font-weight:800;letter-spacing:1px">DMA LEAGUE</div>
         <h2 id="managerClubTitle">YOUR CLUB</h2>
-        <div id="managerSeasonStatus" class="manager-sub">Build your club and begin a 30-gameweek season against 15 AI managers.</div>
+        <div id="managerSeasonStatus" class="manager-sub">Build your club and begin a 30-gameweek season against 15 opponents across Beginner, Hard and Expert modes.</div>
       </div>
 
       <div id="managerSetupBlock">
@@ -1107,12 +1107,16 @@ body{
   <div class="card">
     <div class="menu-grid">
       <button class="menu-btn" onclick="startFormationBuilder('ai','beginner')">
-        Beginner AI
-        <span style="display:block;font-size:11px;opacity:.72;margin-top:3px">Core AI — easier tactical decisions</span>
+        Beginner Mode
+        <span style="display:block;font-size:11px;opacity:.72;margin-top:3px">Easier tactical decisions</span>
       </button>
       <button class="menu-btn primary" onclick="startFormationBuilder('ai','hard')">
-        Hard AI
+        Hard Mode
         <span style="display:block;font-size:11px;opacity:.78;margin-top:3px">Advanced positioning, possession security & scoring tactics</span>
+      </button>
+      <button class="menu-btn" onclick="startFormationBuilder('ai','expert')">
+        Expert Mode
+        <span style="display:block;font-size:11px;opacity:.78;margin-top:3px">Elite pressing, lane protection, safe possession & coordinated attacks</span>
       </button>
       <button class="menu-btn" onclick="startFormationBuilder('local')">Local Multiplayer</button>
     </div>
@@ -1159,7 +1163,7 @@ body{
       </div>
     </div>
     <div class="notice" style="margin-top:12px">
-      Online accounts and secure private rooms are active. Live synchronized board moves will be connected in the next multiplayer stage. Local multiplayer remains available on this device.
+      Quick Match, private rooms, synchronized online play and leaderboard results are active. Local multiplayer remains available on this device.
     </div>
   </div>
 </section>
@@ -1179,7 +1183,7 @@ body{
       <h3>Objective</h3>
       <p>Use your 10 pieces to control possession, create passing opportunities, block the opponent and score more goals before full-time. Secondary Points reward possession wins and qualifying passes.</p>
       <div class="points-grid">
-        <div class="point-card"><b>+3</b>Goal</div>
+        <div class="point-card"><b>+1</b>Goal</div>
         <div class="point-card"><b>+1</b>Take Possession</div>
         <div class="point-card"><b>+1</b>Pass when passer & receiver are both in opposition half</div>
       </div>
@@ -1215,7 +1219,7 @@ body{
       <ul>
         <li>Only a possession piece may enter the opponent's gold scoring block.</li>
         <li>No piece may enter its own scoring block.</li>
-        <li>A goal earns +3.</li>
+        <li>A goal earns +1 goal.</li>
         <li>If the possession piece already moved with possession during that turn, it cannot later move into the scoring block during the same turn.</li>
       </ul>
     </div>
@@ -1448,6 +1452,7 @@ let scores={cyan:0,orange:0},secondaryScores={cyan:0,orange:0},gameTimeRemaining
 let gameStarted=false,paused=false,gameOver=false,halftimeTriggered=false,halftimeActive=false,roundResetPending=false,gameInterval=null,turnSerial=0,aiMode=null,aiSupportMovesUsed=0;
 let aiPieceMoveCounts={},aiVisitedSquares={};
 let aiGoalBlockerPieceId=null;
+let aiExpertMercy=false;
 let aiPostTakeActive=false;
 let aiPlannedPassTargetId=null;
 let savedPlayerFormation=[],savedOrangeFormation=[],formationPieces=[],selectedFormationId=null;
@@ -1757,7 +1762,7 @@ function renderManagerJourney(){
     setup.style.display="block";
     active.style.display="none";
     document.getElementById("managerClubTitle").textContent="YOUR CLUB";
-    document.getElementById("managerSeasonStatus").textContent="Build your club and begin a 30-gameweek season against 15 AI managers.";
+    document.getElementById("managerSeasonStatus").textContent="Build your club and begin a 30-gameweek season against 15 opponents across Beginner, Hard and Expert modes.";
     document.getElementById("managerLeagueBody").innerHTML='<tr><td colspan="12" style="padding:28px;color:#8797af">Start a season to generate the 16-team DMA League.</td></tr>';
     document.getElementById("managerResultsView").innerHTML="";
     document.getElementById("managerFixturesView").innerHTML="";
@@ -1915,15 +1920,15 @@ function playManagerFixture(){
   const opponentId=f.home==="user"?f.away:f.home;
   const opp=getManagerTeam(opponentId);
 
-  // Stronger clubs use Hard AI; weaker clubs use Beginner AI.
-  aiDifficulty=opp.rating>=72?"hard":"beginner";
+  // Elite clubs use Expert Mode, strong clubs use Hard Mode.
+  aiDifficulty=opp.rating>=86?"expert":opp.rating>=72?"hard":"beginner";
   gameMode="ai";
 
   // Keep the user's selected formation workflow.
   startFormationBuilder("ai",aiDifficulty);
 
   const msg=document.getElementById("formationMessage");
-  if(msg)msg.textContent=`Manager Journey · Gameweek ${managerJourney.currentWeek+1} vs ${opp.name} · ${aiDifficulty.toUpperCase()} AI`;
+  if(msg)msg.textContent=`Manager Journey · Gameweek ${managerJourney.currentWeek+1} vs ${opp.name} · ${aiDifficulty.toUpperCase()} MODE`;
 }
 
 function completeManagerWeekWithUserScore(userScore,oppScore,userSecondary=0,oppSecondary=0){
@@ -2007,7 +2012,7 @@ function getAIGoalBlocker(){
   return pieces.find(p=>p.id===aiGoalBlockerPieceId)||null;
 }
 function isAIGoalBlocker(piece){
-  return gameMode==="ai"&&aiDifficulty==="hard"&&piece&&piece.team===AI_TEAM&&piece.id===aiGoalBlockerPieceId;
+  return gameMode==="ai"&&aiDifficulty!=="beginner"&&piece&&piece.team===AI_TEAM&&piece.id===aiGoalBlockerPieceId;
 }
 function isAttackingHalf(team,row){return team==="cyan"?row>=6:row<=5}
 function isDefensiveHalf(team,row){return !isAttackingHalf(team,row)}
@@ -2100,7 +2105,7 @@ function generateStructuredSquadFormation(team,formationName=null){
 
   // Advanced AI formation rule:
   // one Defence ♦ remains directly in front of the AI scoring block as a permanent guard.
-  if(team===AI_TEAM&&aiDifficulty==="hard"){
+  if(team===AI_TEAM&&aiDifficulty!=="beginner"){
     const guard=goalGuardSquare(team);
     const diamondDefender=byRole.defence.find(p=>p.movement==="diamond");
     if(diamondDefender){
@@ -2132,7 +2137,7 @@ function setupPiecesFromFormations(){
   const orange=savedOrangeFormation.length===10?savedOrangeFormation:generateRandomSquadFormation("orange");
 
   // Re-enforce the AI guard even when a previously saved Orange formation is reused.
-  if(gameMode==="ai"&&aiDifficulty==="hard"){
+  if(gameMode==="ai"&&aiDifficulty!=="beginner"){
     const guard=goalGuardSquare(AI_TEAM);
     let blocker=orange.find(p=>p.role==="defence"&&p.movement==="diamond"&&p.goalBlocker);
     if(!blocker)blocker=orange.find(p=>p.role==="defence"&&p.movement==="diamond");
@@ -2152,7 +2157,7 @@ function setupPiecesFromFormations(){
   cyan.forEach(p=>addPiece("cyan",p.role,p.movement,p.row,p.col,false,!!p.goalBlocker));
   orange.forEach(p=>addPiece("orange",p.role,p.movement,p.row,p.col,false,!!p.goalBlocker));
 
-  if(gameMode==="ai"&&aiDifficulty==="hard"){
+  if(gameMode==="ai"&&aiDifficulty!=="beginner"){
     const guard=goalGuardSquare(AI_TEAM);
     const blocker=pieces.find(p=>p.team===AI_TEAM&&p.role==="defence"&&p.movement==="diamond"&&p.row===guard.row&&p.col===guard.col);
     if(blocker)aiGoalBlockerPieceId=blocker.id;
@@ -2446,7 +2451,7 @@ function aiMoveVarietyScore(piece){
 const AI_ADVANCED_TACTIC_CHANCE=0.36;
 
 function aiUseAdvancedTactics(){
-  return Math.random()<AI_ADVANCED_TACTIC_CHANCE;
+  return aiDifficulty==="expert"||Math.random()<AI_ADVANCED_TACTIC_CHANCE;
 }
 
 function getLegalTakersAgainstSquare(attackingTeam,row,col){
@@ -3226,6 +3231,161 @@ function chooseAIDefenseAction(){
     if(s>bestScore){bestScore=s;best={type:"move",piece,row:m.row,col:m.col}}
   }));return best;
 }
+
+/* EXPERT AI — threat maps, lane denial and possession-safe positional play */
+function expertLaneSquares(piece,target){
+  if(!canPieceGeometryReach(piece,target.row,target.col))return [];
+  const dr=Math.sign(target.row-piece.row),dc=Math.sign(target.col-piece.col),out=[];
+  let r=piece.row+dr,c=piece.col+dc;
+  while(r!==target.row||c!==target.col){out.push({row:r,col:c});r+=dr;c+=dc}
+  return out;
+}
+
+function expertOpponentDanger(piece){
+  const goal=targetGoalFor(HUMAN_TEAM);
+  const distance=distanceToGoal(HUMAN_TEAM,piece.row,piece.col);
+  let danger=Math.max(0,9-distance)*7;
+  if(piece.possession)danger+=95;
+  if(isAttackingHalf(HUMAN_TEAM,piece.row))danger+=42;
+  if(canPieceGeometryReach(piece,goal.row,goal.col))danger+=piece.possession?85:38;
+  if(piece.role==="attack"&&isAttackingHalf(HUMAN_TEAM,piece.row))danger+=25;
+  return danger;
+}
+
+function expertLaneBlockScore(blocker,row,col){
+  const goal=targetGoalFor(HUMAN_TEAM);
+  let score=0;
+  pieces.filter(p=>p.team===HUMAN_TEAM).forEach(threat=>{
+    const danger=expertOpponentDanger(threat);
+    const lane=expertLaneSquares(threat,goal);
+    const onLane=lane.some(s=>s.row===row&&s.col===col);
+    if(onLane){
+      // Attackers skip every non-defender, so only Defence truly closes their lane.
+      if(threat.role==="attack")score+=blocker.role==="defence"?danger*1.35:danger*.12;
+      else score+=danger*.9;
+    }
+    const distance=chebyshevDistance(row,col,threat.row,threat.col);
+    if(distance===1)score+=danger*.28;
+    if(blocker.movement==="plus"&&getHalfFromRow(row)===getHalf(threat)&&(row===threat.row||col===threat.col))score+=danger*.38;
+    // When pressing an off-ball runner, stay goal-side instead of jumping beyond it.
+    if(!threat.possession&&danger>55&&row<threat.row)score-=34;
+  });
+  score-=chebyshevDistance(row,col,goal.row,goal.col)*(blocker.role==="defence"?2.2:.6);
+  return score;
+}
+
+function expertCrossCoverageScore(piece,row,col){
+  if(piece.movement!=="plus")return 0;
+  const crosses=pieces.filter(p=>p.team===AI_TEAM&&p.movement==="plus"&&p.id!==piece.id);
+  const sameColumn=crosses.filter(p=>p.col===col).length;
+  const nearestColumn=crosses.length?Math.min(...crosses.map(p=>Math.abs(p.col-col))):4;
+  const nearestRow=crosses.length?Math.min(...crosses.map(p=>Math.abs(p.row-row))):4;
+  let score=Math.min(nearestColumn,3)*14+Math.min(nearestRow,3)*5-sameColumn*24;
+  if(col===1||col===4||col===7)score+=8;
+  return score;
+}
+
+function expertPossessionRisk(row,col){
+  const threats=aiTakeThreatCount(AI_TEAM,row,col);
+  const adjacent=nearestOpponentDistance(AI_TEAM,row,col)<=1;
+  return threats*95+(adjacent?55:0);
+}
+
+function chooseExpertSupportAction(holder){
+  let best=null,bestScore=-Infinity;
+  pieces.filter(p=>p.team===AI_TEAM&&!p.possession&&!isAIGoalBlocker(p)).forEach(piece=>{
+    getLegalMoves(piece).forEach(m=>{
+      if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+      const safe=expertPossessionRisk(m.row,m.col)===0;
+      let s=aiMoveVarietyScore(piece)+expertCrossCoverageScore(piece,m.row,m.col);
+      if(isAttackingHalf(AI_TEAM,m.row))s+=piece.role==="attack"?72:48;
+      s+=withVirtualPosition(piece,m.row,m.col,()=>isLegalPass(holder,piece)?65+countPassingConnections(piece)*10:countPassingConnections(piece)*7);
+      s+=safe?30:-expertPossessionRisk(m.row,m.col)*.35;
+      s+=Math.random()*3;
+      if(s>bestScore){bestScore=s;best={type:"move",piece,row:m.row,col:m.col,message:"Expert Mode builds a safe attacking network."}}
+    });
+  });
+  return bestScore>35?best:null;
+}
+
+function chooseExpertAIAttackAction(){
+  const holder=getPossessionPiece();
+  if(!holder||holder.team!==AI_TEAM)return chooseExpertAIDefenseAction();
+
+  const goalMove=getLegalMoves(holder).find(m=>isTargetGoalCell(AI_TEAM,m.row,m.col));
+  if(goalMove)return {type:"move",piece:holder,row:goalMove.row,col:goalMove.col,message:"Expert Mode finishes the scoring route."};
+
+  if(aiPostTakeActive){const secured=choosePostTakeSecureAction();if(secured)return secured}
+
+  const holderInOwnHalf=isDefensiveHalf(AI_TEAM,holder.row);
+  const passes=pieces.filter(p=>p.team===AI_TEAM&&p.id!==holder.id&&!isAIGoalBlocker(p)&&isLegalPass(holder,p));
+  let bestPass=null,bestPassScore=-Infinity;
+  passes.forEach(target=>{
+    const risk=expertPossessionRisk(target.row,target.col);
+    let s=scoreAIPassOption(holder,target)+countPassingConnections(target)*9;
+    if(isAttackingHalf(AI_TEAM,holder.row)&&isAttackingHalf(AI_TEAM,target.row))s+=105;
+    if(isAttackingHalf(AI_TEAM,target.row))s+=32;
+    if(getLegalMoves(target).some(m=>isTargetGoalCell(AI_TEAM,m.row,m.col)))s+=125;
+    s-=risk*(aiExpertMercy&&isAttackingHalf(AI_TEAM,target.row)?.45:1.25);
+    if(holderInOwnHalf&&risk>0)s-=220;
+    if(risk===0)s+=45;
+    s+=Math.random()*2;
+    if(s>bestPassScore){bestPassScore=s;bestPass={type:"pass",from:holder,to:target,message:"Expert Mode changes possession into protected space."}}
+  });
+  if(bestPass&&bestPassScore>30)return bestPass;
+
+  if(actionsRemaining>=2){const support=chooseExpertSupportAction(holder);if(support)return support}
+
+  let bestCarry=null,bestCarryScore=-Infinity;
+  const currentDistance=distanceToGoal(AI_TEAM,holder.row,holder.col);
+  getLegalMoves(holder).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(holder,m.row,m.col))return;
+    const risk=expertPossessionRisk(m.row,m.col);
+    const progress=currentDistance-distanceToGoal(AI_TEAM,m.row,m.col);
+    let s=progress*24+aiSquareSafetyScore(AI_TEAM,m.row,m.col)+aiMoveVarietyScore(holder)-risk*1.35;
+    if(risk===0)s+=48;
+    if(holderInOwnHalf&&risk>0)s-=260;
+    if(isAttackingHalf(AI_TEAM,m.row))s+=28;
+    if(aiExpertMercy&&isAttackingHalf(AI_TEAM,m.row))s+=risk*.55;
+    s+=Math.random()*2;
+    if(s>bestCarryScore){bestCarryScore=s;bestCarry={type:"move",piece:holder,row:m.row,col:m.col,message:risk?"Expert Mode takes a calculated attacking risk.":"Expert Mode advances without exposing possession."}}
+  });
+  if(bestCarry&&bestCarryScore>-20)return bestCarry;
+  if(bestPass)return bestPass;
+  return chooseExpertSupportAction(holder)||chooseAIAttackAction();
+}
+
+function chooseExpertAIDefenseAction(){
+  const holder=getPossessionPiece();
+  if(holder&&holder.team===AI_TEAM){aiMode="ATTACK";return chooseExpertAIAttackAction()}
+
+  const takers=pieces.filter(p=>p.team===AI_TEAM&&canTakePossession(p)&&!isAIGoalBlocker(p));
+  if(takers.length){
+    const best=takers.map(piece=>({piece,score:aiSquareSafetyScore(AI_TEAM,piece.row,piece.col)+countPassingConnections(piece)*12+expertCrossCoverageScore(piece,piece.row,piece.col)})).sort((a,b)=>b.score-a.score)[0];
+    return {type:"take",piece:best.piece};
+  }
+  if(!holder)return null;
+
+  const dangers=pieces.filter(p=>p.team===HUMAN_TEAM).sort((a,b)=>expertOpponentDanger(b)-expertOpponentDanger(a));
+  let best=null,bestScore=-Infinity;
+  pieces.filter(p=>p.team===AI_TEAM&&!isAIGoalBlocker(p)).forEach(piece=>getLegalMoves(piece).forEach(m=>{
+    if(!aiMoveAllowedThisTurn(piece,m.row,m.col))return;
+    let s=aiMoveVarietyScore(piece)+expertLaneBlockScore(piece,m.row,m.col)+expertCrossCoverageScore(piece,m.row,m.col);
+    const ballDistance=chebyshevDistance(m.row,m.col,holder.row,holder.col);
+    s-=ballDistance*(piece.role==="attack"?5:2);
+    if(ballDistance===1)s+=72;
+    if(piece.movement==="plus"&&getHalfFromRow(m.row)===getHalf(holder)&&(m.row===holder.row||m.col===holder.col))s+=92;
+    dangers.slice(0,4).forEach(threat=>{
+      const d=chebyshevDistance(m.row,m.col,threat.row,threat.col);
+      s+=Math.max(0,4-d)*expertOpponentDanger(threat)*.08;
+    });
+    if(piece.role==="defence")s+=28;
+    s+=Math.random()*2;
+    if(s>bestScore){bestScore=s;best={type:"move",piece,row:m.row,col:m.col,message:"Expert Mode closes the most dangerous route."}}
+  }));
+  return best||chooseAIDefenseAction();
+}
+
 function chooseAIAction(){
   const p=getPossessionPiece();
   aiMode=p&&p.team===AI_TEAM?"ATTACK":"DEFENSE";
@@ -3235,6 +3395,12 @@ function chooseAIAction(){
     return aiMode==="ATTACK"
       ?chooseBeginnerAIAttackAction()
       :chooseBeginnerAIDefenseAction();
+  }
+
+  if(aiDifficulty==="expert"){
+    return aiMode==="ATTACK"
+      ?chooseExpertAIAttackAction()
+      :chooseExpertAIDefenseAction();
   }
 
   return aiMode==="ATTACK"
@@ -3249,7 +3415,7 @@ function executeAIAction(a){
     if(ok){
       aiMode="ATTACK";
       aiSupportMovesUsed=0;
-      aiPostTakeActive=aiDifficulty==="hard";
+      aiPostTakeActive=aiDifficulty!=="beginner";
       aiPlannedPassTargetId=null;
       // Hard AI activates advanced post-Take security planning.
       // Beginner simply continues with normal remaining actions.
@@ -3427,7 +3593,7 @@ function updateInterface(){
       :currentTeam===HUMAN_TEAM?"YOUR TURN":"OPPONENT TURN";
   document.getElementById("modeLabel").textContent=
     gameMode==="ai"&&currentTeam===AI_TEAM
-      ?`${aiDifficulty==="hard"?"HARD":"BEGINNER"} AI • ${aiMode} MODE`
+      ?`${aiDifficulty==="expert"?"EXPERT":aiDifficulty==="hard"?"HARD":"BEGINNER"} MODE • ${aiMode}`
       :gameMode==="online"?"ONLINE MATCH • "+(dmaOnlineRole||"").toUpperCase():"";
   [1,2,3].forEach((n,i)=>document.getElementById("action"+n).classList.toggle("active",i<actionsRemaining));
   document.getElementById("cyanCard").classList.toggle("active",currentTeam==="cyan");document.getElementById("orangeCard").classList.toggle("active",currentTeam==="orange");
@@ -3645,6 +3811,9 @@ function startMatch(){
   const starter=pieces.find(p=>p.team==="cyan"&&p.role==="midfield"&&p.movement==="diamond")||pieces.find(p=>p.team==="cyan");starter.possession=true;
   scores={cyan:0,orange:0};secondaryScores={cyan:0,orange:0};matchStats={cyanGoals:0,cyanTakes:0,cyanPasses:0,orangeGoals:0,orangeTakes:0,orangePasses:0};
   gameTimeRemaining=GAME_DURATION;turnTimeRemaining=TURN_DURATION;actionsRemaining=ACTIONS_PER_TURN;currentTeam="cyan";gameStarted=true;paused=false;gameOver=false;halftimeTriggered=false;halftimeActive=false;roundResetPending=false;
+  // About one in four Expert matches uses a slightly more adventurous risk
+  // profile in the attacking half, while remaining careful near its own goal.
+  aiExpertMercy=gameMode==="ai"&&aiDifficulty==="expert"&&Math.random()<0.25;
   buildMatchBoard();showScreen("screen-match");startNewTurn();startTimer();
 }
 
